@@ -15,6 +15,7 @@ local res = require('resources')
 local ws_name = 'Piercing Arrow'
 local tp_threshold = 1000
 local food_name = nil
+local ammo_name = nil
 
 local function is_food_active()
     local player = windower.ffxi.get_player()
@@ -26,13 +27,13 @@ local function is_food_active()
     return false
 end
 
-local function has_food_in_inventory()
+local function find_in_inventory(name)
     local items = windower.ffxi.get_items(0)
     for i = 1, items.max do
         local item = items[i]
         if item and item.id ~= 0 then
             local item_data = res.items[item.id]
-            if item_data and item_data.en:lower() == food_name:lower() then
+            if item_data and item_data.en:lower() == name:lower() then
                 return true
             end
         end
@@ -41,13 +42,23 @@ local function has_food_in_inventory()
 end
 
 local function try_eat_food()
-    if food_name and not is_food_active() and has_food_in_inventory() then
+    if food_name and not is_food_active() and find_in_inventory(food_name) then
         windower.send_command('input /item "' .. food_name .. '" <me>')
     end
 end
 
+local function try_equip_ammo()
+    if ammo_name then
+        if find_in_inventory(ammo_name) then
+            windower.send_command('input /equip Ammo "' .. ammo_name .. '"')
+        else
+            windower.add_to_chat(8, 'MagianWS: Out of "' .. ammo_name .. '".')
+        end
+    end
+end
+
 local function print_status()
-    windower.add_to_chat(8, 'MagianWS: Weaponskill: "' .. ws_name .. '" | TP threshold: ' .. tp_threshold .. ' | Food: ' .. (food_name or 'off'))
+    windower.add_to_chat(8, 'MagianWS: Weaponskill: "' .. ws_name .. '" | TP threshold: ' .. tp_threshold .. ' | Food: ' .. (food_name or 'off') .. ' | Ammo: ' .. (ammo_name or 'off'))
 end
 
 local function try_eat_food_if_engaged()
@@ -78,6 +89,15 @@ windower.register_event('addon command', function(cmd, ...)
             try_eat_food_if_engaged()
         end
         print_status()
+    elseif cmd == 'ammo' then
+        local arg = table.concat({...}, ' ')
+        if arg == '' or arg:lower() == 'off' then
+            ammo_name = nil
+        else
+            ammo_name = arg
+            try_equip_ammo()
+        end
+        print_status()
     elseif cmd == 'status' then
         print_status()
     end
@@ -98,9 +118,11 @@ end)
 windower.register_event('tp change', function(new_tp, old_tp)
     local player = windower.ffxi.get_player()
     if new_tp >= tp_threshold and player.status == 1 then
+        try_equip_ammo()
         windower.send_command('input /ws "' .. ws_name .. '" <t>')
     end
 end)
 
 print_status()
+try_equip_ammo()
 try_eat_food_if_engaged()
