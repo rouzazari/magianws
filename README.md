@@ -1,33 +1,37 @@
-Authors: renzler
-Version: 0.0.1
-Date: 2/26/2026
+# MagianWS
 
-Description:
-MagianWS automatically uses a weaponskill at a configurable TP threshold when the
-player is engaged. Designed for Magian Trials that require a certain number of
-weaponskill executions.
+**Author:** renzler
+**Version:** 0.0.1
+**Date:** 2/26/2026
 
-Commands:
-//magianws ws <name>      - Set the weaponskill to use (default: Piercing Arrow)
-//magianws tp <value>     - Set the minimum TP threshold (default: 1000)
-//magianws food <name>    - Set a food item to auto-use when engaging or food wears off
-//magianws food off       - Disable auto-food
-//magianws ammo <name>    - Set an ammo item to auto-equip from inventory on load and before each WS
-//magianws ammo off       - Disable auto-ammo
-//magianws status         - Display current settings
+## Description
 
-How to load:
+MagianWS automatically uses a weaponskill at a configurable TP threshold when the player is engaged. Designed for Magian Trials that require a certain number of weaponskill executions.
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `//magianws ws <name>` | Set the weaponskill to use (default: Piercing Arrow) |
+| `//magianws tp <value>` | Set the minimum TP threshold (default: 1000) |
+| `//magianws food <name>` | Set a food item to auto-use when engaging or when food wears off |
+| `//magianws food off` | Disable auto-food |
+| `//magianws ammo <name>` | Set an ammo item to auto-equip from inventory on load and before each WS |
+| `//magianws ammo off` | Disable auto-ammo |
+| `//magianws status` | Display current settings |
+
+## Usage
+
+```
 //lua load MagianWS
-
-How to reload after changes:
 //lua reload MagianWS
-
-How to unload:
 //lua unload MagianWS
+```
 
-Planned features:
-1) Target minimum HP% check before executing the weaponskill (for "killing blow" trials)
-2) SAM job ability handling (Meditate, Hasso)
-3) Trust management
-4) Stop/warp at trial completion
-5) Persistent settings across reloads
+## Planned Features
+
+- Target minimum HP% check before executing the weaponskill (for "killing blow" trials)
+- SAM job ability handling (Meditate, Hasso)
+- Trust management
+- Stop/warp at trial completion
+- Persistent settings across reloads
