@@ -10,12 +10,16 @@ _addon.author = 'renzler'
 _addon.version = '0.0.1'
 _addon.commands = {'magianws'}
 
+config = require('config')
 local res = require('resources')
 
-local ws_name = 'Piercing Arrow'
-local tp_threshold = 1000
-local food_name = nil
-local ammo_name = nil
+local defaults = {}
+defaults.ws_name = 'Piercing Arrow'
+defaults.tp_threshold = 1000
+defaults.food_name = ''
+defaults.ammo_name = ''
+
+local settings = config.load(defaults)
 
 local function is_food_active()
     local player = windower.ffxi.get_player()
@@ -42,23 +46,23 @@ local function find_in_inventory(name)
 end
 
 local function try_eat_food()
-    if food_name and not is_food_active() and find_in_inventory(food_name) then
-        windower.send_command('input /item "' .. food_name .. '" <me>')
+    if settings.food_name ~= '' and not is_food_active() and find_in_inventory(settings.food_name) then
+        windower.send_command('input /item "' .. settings.food_name .. '" <me>')
     end
 end
 
 local function try_equip_ammo()
-    if ammo_name then
-        if find_in_inventory(ammo_name) then
-            windower.send_command('input /equip Ammo "' .. ammo_name .. '"')
+    if settings.ammo_name ~= '' then
+        if find_in_inventory(settings.ammo_name) then
+            windower.send_command('input /equip Ammo "' .. settings.ammo_name .. '"')
         else
-            windower.add_to_chat(8, 'MagianWS: Out of "' .. ammo_name .. '".')
+            windower.add_to_chat(8, 'MagianWS: Out of "' .. settings.ammo_name .. '".')
         end
     end
 end
 
 local function print_status()
-    windower.add_to_chat(8, 'MagianWS: Weaponskill: "' .. ws_name .. '" | TP threshold: ' .. tp_threshold .. ' | Food: ' .. (food_name or 'off') .. ' | Ammo: ' .. (ammo_name or 'off'))
+    windower.add_to_chat(8, 'MagianWS: Weaponskill: "' .. settings.ws_name .. '" | TP threshold: ' .. settings.tp_threshold .. ' | Food: ' .. (settings.food_name ~= '' and settings.food_name or 'off') .. ' | Ammo: ' .. (settings.ammo_name ~= '' and settings.ammo_name or 'off'))
 end
 
 local function try_eat_food_if_engaged()
@@ -70,12 +74,14 @@ end
 
 windower.register_event('addon command', function(cmd, ...)
     if cmd == 'ws' then
-        ws_name = table.concat({...}, ' ')
+        settings.ws_name = table.concat({...}, ' ')
+        settings:save()
         print_status()
     elseif cmd == 'tp' then
         local val = tonumber((...))
         if val then
-            tp_threshold = val
+            settings.tp_threshold = val
+            settings:save()
             print_status()
         else
             windower.add_to_chat(8, 'MagianWS: Invalid TP value.')
@@ -83,20 +89,22 @@ windower.register_event('addon command', function(cmd, ...)
     elseif cmd == 'food' then
         local arg = table.concat({...}, ' ')
         if arg == '' or arg:lower() == 'off' then
-            food_name = nil
+            settings.food_name = ''
         else
-            food_name = arg
+            settings.food_name = arg
             try_eat_food_if_engaged()
         end
+        settings:save()
         print_status()
     elseif cmd == 'ammo' then
         local arg = table.concat({...}, ' ')
         if arg == '' or arg:lower() == 'off' then
-            ammo_name = nil
+            settings.ammo_name = ''
         else
-            ammo_name = arg
+            settings.ammo_name = arg
             try_equip_ammo()
         end
+        settings:save()
         print_status()
     elseif cmd == 'status' then
         print_status()
@@ -117,9 +125,9 @@ end)
 
 windower.register_event('tp change', function(new_tp, old_tp)
     local player = windower.ffxi.get_player()
-    if new_tp >= tp_threshold and player.status == 1 then
+    if new_tp >= settings.tp_threshold and player.status == 1 then
         try_equip_ammo()
-        windower.send_command('input /ws "' .. ws_name .. '" <t>')
+        windower.send_command('input /ws "' .. settings.ws_name .. '" <t>')
     end
 end)
 

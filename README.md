@@ -34,4 +34,3 @@ MagianWS automatically uses a weaponskill at a configurable TP threshold when th
 - SAM job ability handling (Meditate, Hasso)
 - Trust management
 - Stop/warp at trial completion
-- Persistent settings across reloads
