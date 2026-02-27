@@ -3,21 +3,31 @@ Version: 0.0.1
 Date: 2/26/2026
 
 Description:
-Magian WS automatically uses a weaponskill at 1000 TP for Magian Trials that require a certain number of weaponskill executions.
-This add-on is in development and will contain the following features:
-1) Specify the weaponskill
-2) Specify the minimum TP
-3) Specify the target minimum HP before executing the weaponskill (helpful for "killing blow" trials)
+MagianWS automatically uses a weaponskill at a configurable TP threshold when the
+player is engaged. Designed for Magian Trials that require a certain number of
+weaponskill executions.
 
-Nice to haves:
-1) Automatic food
-2) Turn around and wait for regain ticks
-3) SAM/ and /SAM abilities
-4) Ammunition
-5) Buffs/debuffs
-6) Trust management
-7) Stop/warp at completion
+Commands:
+//magianws ws <name>      - Set the weaponskill to use (default: Piercing Arrow)
+//magianws tp <value>     - Set the minimum TP threshold (default: 1000)
+//magianws food <name>    - Set a food item to auto-use when engaging or food wears off
+//magianws food off       - Disable auto-food
+//magianws ammo <name>    - Set an ammo item to auto-equip from inventory on load and before each WS
+//magianws ammo off       - Disable auto-ammo
+//magianws status         - Display current settings
 
-How to load the add-on:
+How to load:
 //lua load MagianWS
 
+How to reload after changes:
+//lua reload MagianWS
+
+How to unload:
+//lua unload MagianWS
+
+Planned features:
+1) Target minimum HP% check before executing the weaponskill (for "killing blow" trials)
+2) SAM job ability handling (Meditate, Hasso)
+3) Trust management
+4) Stop/warp at trial completion
+5) Persistent settings across reloads
