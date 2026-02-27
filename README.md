@@ -28,6 +28,15 @@ MagianWS automatically uses a weaponskill at a configurable TP threshold when th
 //lua unload MagianWS
 ```
 
+## Recommended camps
+
+| Weapon | Trial | Mob | Camp |
+|---|---|---|---|
+| Archery | [2642](https://www.bg-wiki.com/ffxi/Trial_2642) | [Bight Uragnites](https://www.bg-wiki.com/ffxi/Bight_Uragnite) | [Ceizak Battlegrounds](https://www.bg-wiki.com/ffxi/Ceizak_Battlegrounds) |
+| Archery | [3075](https://www.bg-wiki.com/ffxi/Trial_3075) | [Apex Mandragora](https://www.bg-wiki.com/ffxi/Apex_Mandragora) | [Sih Gates](https://www.bg-wiki.com/ffxi/Sih_Gates) |
+| Marksmanship | [1786](https://www.bg-wiki.com/ffxi/Trial_1786) | [Apex Eruca](https://www.bg-wiki.com/ffxi/Apex_Eruca) | [Moh Gates](https://www.bg-wiki.com/ffxi/Moh_Gates) |
+
+
 ## Planned Features
 
 - Target minimum HP% check before executing the weaponskill (for "killing blow" trials)
