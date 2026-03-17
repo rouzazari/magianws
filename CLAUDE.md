@@ -39,11 +39,20 @@ The entire addon lives in `magianws.lua`. Windower addons are event-driven; logi
 **Current event:**
 - `'tp change'` — fires with `(new_tp, old_tp)` whenever the player's TP changes
 
+**Implemented features:**
+- Configurable weaponskill name and TP threshold
+- Persistent settings via the `config` library (`data/settings.xml`)
+- Auto-food: eats configured food on engage and when it wears off
+- Auto-ammo: equips configured ammo from inventory before each WS
+- Self-buff maintenance: tracks a list of spells/job abilities, recasts them on engage or when they wear off; staggered with 6-second delays to avoid "Unable to cast" errors; buff names with spaces use underscored XML keys (e.g. `Phalanx_II`) with a `name` field for the actual cast command
+
 **Planned features (not yet implemented):**
-- Configurable weaponskill name (currently hardcoded to `"Empyreal Arrow"`)
-- Configurable minimum TP threshold (currently hardcoded to 1000)
+- Cast Composure before other buffs so it extends their duration
+- Retry buffs that fail to apply (e.g. interrupted cast, recast timer not ready)
 - Target minimum HP% check before firing the WS (for "killing blow" trials)
-- Automatic food, SAM job ability handling, ammunition, Trust management, stop/warp at trial completion
+- SAM job ability handling (Meditate, Hasso)
+- Trust management
+- Stop/warp at trial completion
 
 ## Windower Addon Conventions
 

@@ -1,0 +1,34 @@
+<?xml version="1.1" ?>
+<settings>
+    <global>
+        <ammo_name />
+        <buffs>
+            <composure>
+                <name>Composure</name>
+                <buff_id>419</buff_id>
+                <type>ability</type>
+            </composure>		
+            <Phalanx_II>
+                <name>Phalanx II</name>
+                <buff_id>116</buff_id>
+                <type>spell</type>
+            </Phalanx_II>
+            <Temper>
+                <name>Temper</name>
+                <buff_id>432</buff_id>
+                <type>spell</type>
+            </Temper>
+            <haste>
+                <name>Haste</name>
+                <buff_id>33</buff_id>
+                <type>spell</type>
+            </haste>
+        </buffs>
+        <food_name />
+        <tp_threshold>1000</tp_threshold>
+        <ws_name>Piercing Arrow</ws_name>
+    </global>
+    <nermie>
+        <ws_name>Burning Blade</ws_name>
+    </nermie>
+</settings>

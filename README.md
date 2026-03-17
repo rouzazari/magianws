@@ -30,15 +30,19 @@ MagianWS automatically uses a weaponskill at a configurable TP threshold when th
 
 ## Recommended camps
 
-| Weapon | Trial | Mob | Camp |
-|---|---|---|---|
-| Archery | [2642](https://www.bg-wiki.com/ffxi/Trial_2642) | [Bight Uragnites](https://www.bg-wiki.com/ffxi/Bight_Uragnite) | [Ceizak Battlegrounds](https://www.bg-wiki.com/ffxi/Ceizak_Battlegrounds) |
-| Archery | [3075](https://www.bg-wiki.com/ffxi/Trial_3075) | [Apex Mandragora](https://www.bg-wiki.com/ffxi/Apex_Mandragora) | [Sih Gates](https://www.bg-wiki.com/ffxi/Sih_Gates) |
-| Marksmanship | [1786](https://www.bg-wiki.com/ffxi/Trial_1786) | [Apex Eruca](https://www.bg-wiki.com/ffxi/Apex_Eruca) | [Moh Gates](https://www.bg-wiki.com/ffxi/Moh_Gates) |
+| Weapon | Trial | Mob | Camp | Weaponskill |
+|---|---|---|---|---|
+| Archery | [2232](https://www.bg-wiki.com/ffxi/Trial_2232) | [Overking Apkallu](https://www.bg-wiki.com/ffxi/Overking_Apkallu) | [Abyssea - Misareaux](https://www.bg-wiki.com/ffxi/Abyssea_-_Misareaux) | Empyreal Arrow (required) |
+| Archery | [2642](https://www.bg-wiki.com/ffxi/Trial_2642) | [Bight Uragnites](https://www.bg-wiki.com/ffxi/Bight_Uragnite) | [Ceizak Battlegrounds](https://www.bg-wiki.com/ffxi/Ceizak_Battlegrounds) | Piercing Arrow |
+| Archery | [3075](https://www.bg-wiki.com/ffxi/Trial_3075) | [Apex Mandragora](https://www.bg-wiki.com/ffxi/Apex_Mandragora) | [Sih Gates](https://www.bg-wiki.com/ffxi/Sih_Gates) | Piercing Arrow |
+| Archery | [3538](https://www.bg-wiki.com/ffxi/Trial_3538) | [Apex Eruca](https://www.bg-wiki.com/ffxi/Apex_Eruca) | [Moh Gates](https://www.bg-wiki.com/ffxi/Moh_Gates) | Apex Arrow |
+| Marksmanship | [1786](https://www.bg-wiki.com/ffxi/Trial_1786) | [Apex Eruca](https://www.bg-wiki.com/ffxi/Apex_Eruca) | [Moh Gates](https://www.bg-wiki.com/ffxi/Moh_Gates) | Detonator (required) |
 
 
 ## Planned Features
 
+- Cast Composure before other buffs so it extends their duration
+- Retry buffs that fail to apply (e.g. interrupted cast, recast timer not ready)
 - Target minimum HP% check before executing the weaponskill (for "killing blow" trials)
 - SAM job ability handling (Meditate, Hasso)
 - Trust management
