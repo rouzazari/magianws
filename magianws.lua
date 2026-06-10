@@ -217,7 +217,7 @@ local function find_target_mob(name)
             local dy = mob.y - me.y
             local dz = mob.z - me.z
             local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if dist < best_dist then
+            if dist <= 30 and dist < best_dist then
                 best_dist = dist
                 best = mob
             end
@@ -254,12 +254,11 @@ local function try_engage_target()
             and (current_target.hpp or 0) > 0
             and (current_target.status or 0) ~= 2 then
         local dist_sq = current_target.distance or math.huge
+        dbg('following (dist_sq=' .. tostring(dist_sq) .. ')')
+        windower.send_command('input /follow <t>')
         if dist_sq <= ATTACK_RANGE_SQ then
-            dbg('in range (dist_sq=' .. tostring(dist_sq) .. ') — attacking')
+            dbg('in range — attacking')
             windower.send_command('input /attack')
-        else
-            dbg('following (dist_sq=' .. tostring(dist_sq) .. ')')
-            windower.send_command('input /follow <t>')
         end
         return
     end
@@ -577,6 +576,14 @@ windower.register_event('tp change', function(new_tp, old_tp)
         if new_tp >= settings.tp_threshold then
             execute_ws()
         end
+    end
+end)
+
+windower.register_event('zone change', function()
+    if active then
+        active = false
+        windower.add_to_chat(8, 'MagianWS: Stopped — zone change detected.')
+        update_display()
     end
 end)
 
