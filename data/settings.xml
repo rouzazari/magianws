@@ -3,32 +3,71 @@
     <global>
         <ammo_name />
         <buffs>
-            <composure>
-                <name>Composure</name>
-                <buff_id>419</buff_id>
-                <type>ability</type>
-            </composure>		
-            <Phalanx_II>
-                <name>Phalanx II</name>
-                <buff_id>116</buff_id>
-                <type>spell</type>
-            </Phalanx_II>
-            <Temper>
-                <name>Temper</name>
-                <buff_id>432</buff_id>
-                <type>spell</type>
-            </Temper>
-            <haste>
-                <name>Haste</name>
-                <buff_id>33</buff_id>
-                <type>spell</type>
-            </haste>
+
         </buffs>
+        <display>
+            <bg>
+                <alpha>160</alpha>
+                <blue>0</blue>
+                <green>0</green>
+                <red>0</red>
+                <visible>true</visible>
+            </bg>
+            <flags>
+                <bold>false</bold>
+                <bottom>false</bottom>
+                <draggable>true</draggable>
+                <italic>false</italic>
+                <right>false</right>
+            </flags>
+            <padding>0</padding>
+            <pos>
+                <x>100</x>
+                <y>50</y>
+            </pos>
+            <text>
+                <alpha>255</alpha>
+                <blue>255</blue>
+                <font>Consolas</font>
+                <fonts>
+
+                </fonts>
+                <green>255</green>
+                <red>255</red>
+                <size>11</size>
+                <stroke>
+                    <alpha>255</alpha>
+                    <blue>0</blue>
+                    <green>0</green>
+                    <red>0</red>
+                    <width>0</width>
+                </stroke>
+            </text>
+        </display>
+        <follow>false</follow>
         <food_name />
+        <provoke>false</provoke>
+        <target_name />
         <tp_threshold>1000</tp_threshold>
+        <trial_remaining>-1</trial_remaining>
         <ws_name>Piercing Arrow</ws_name>
     </global>
     <nermie>
-        <ws_name>Burning Blade</ws_name>
+        <display>
+            <pos>
+                <x>1656</x>
+                <y>365</y>
+            </pos>
+            <text>
+                <fonts>
+
+                </fonts>
+            </text>
+        </display>
+        <follow>true</follow>
+        <target_name>Gneiss Leech</target_name>
+        <tp_threshold>1250</tp_threshold>
+        <trial_remaining>37</trial_remaining>
+        <ws_name>Trueflight</ws_name>
     </nermie>
 </settings>

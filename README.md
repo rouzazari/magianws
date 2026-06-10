@@ -6,21 +6,9 @@
 
 ## Description
 
-MagianWS automatically uses a weaponskill at a configurable TP threshold when the player is engaged. Designed for Magian Trials that require a certain number of weaponskill executions.
+MagianWS automates Magian Trial grinding. It automatically uses a weaponskill at a configurable TP threshold while engaged, and optionally handles mob targeting, following, food, ammo, and self-buffs so you can AFK grind a camp.
 
-## Commands
-
-| Command | Description |
-|---|---|
-| `//magianws ws <name>` | Set the weaponskill to use (default: Piercing Arrow) |
-| `//magianws tp <value>` | Set the minimum TP threshold (default: 1000) |
-| `//magianws food <name>` | Set a food item to auto-use when engaging or when food wears off |
-| `//magianws food off` | Disable auto-food |
-| `//magianws ammo <name>` | Set an ammo item to auto-equip from inventory on load and before each WS |
-| `//magianws ammo off` | Disable auto-ammo |
-| `//magianws status` | Display current settings |
-
-## Usage
+## Loading
 
 ```
 //lua load MagianWS
@@ -28,7 +16,90 @@ MagianWS automatically uses a weaponskill at a configurable TP threshold when th
 //lua unload MagianWS
 ```
 
-## Recommended camps
+## Commands
+
+### Weaponskill
+
+| Command | Description |
+|---|---|
+| `//magianws ws <name>` | Set the weaponskill name (default: Piercing Arrow) |
+| `//magianws tp <value>` | Set the TP threshold to fire the WS (default: 1000) |
+
+### Auto-Target
+
+Automatically finds, targets, and follows a named mob. Attacks when within 20 yalms.
+
+| Command | Description |
+|---|---|
+| `//magianws target <name>` | Set the mob name to auto-target |
+| `//magianws target off` | Clear the auto-target mob |
+| `//magianws start` | Begin the auto-target/follow/attack loop |
+| `//magianws stop` | Pause the auto-target loop |
+
+### Consumables
+
+| Command | Description |
+|---|---|
+| `//magianws food <name>` | Auto-use this food item on engage and when it wears off |
+| `//magianws food off` | Disable auto-food |
+| `//magianws ammo <name>` | Auto-equip this ammo from inventory before each WS |
+| `//magianws ammo off` | Disable auto-ammo |
+
+### Self-Buffs
+
+| Command | Description |
+|---|---|
+| `//magianws buff add <name>` | Add a spell or job ability to the self-buff list |
+| `//magianws buff remove <name>` | Remove a buff from the list |
+| `//magianws buff list` | List all configured self-buffs |
+
+Buffs are cast on engage and recast when they wear off, staggered by 6 seconds each to avoid ability conflicts.
+
+### Combat Assists
+
+| Command | Description |
+|---|---|
+| `//magianws provoke on\|off` | Auto-provoke the current target every 30 seconds |
+| `//magianws follow on\|off` | Re-follow the current target on "out of range" or "cannot see" messages |
+
+### Trial Progress
+
+| Command | Description |
+|---|---|
+| `//magianws trial set <n>` | Manually set the remaining trial count |
+| `//magianws trial reset` | Reset the remaining count to unknown |
+| `//magianws trial` | Print the current remaining count |
+
+The remaining count auto-updates by parsing trial completion messages from the chat log.
+
+### Overlay
+
+| Command | Description |
+|---|---|
+| `//magianws show` | Show the HUD overlay (draggable) |
+| `//magianws hide` | Hide the HUD overlay |
+
+The overlay shows the active WS, remaining trial count, and auto-target status (▶ running / ■ stopped).
+
+### Misc
+
+| Command | Description |
+|---|---|
+| `//magianws status` | Print all current settings to chat |
+| `//magianws debug on\|off` | Toggle verbose targeting debug output |
+
+## Typical Setup
+
+```
+//magianws ws Trueflight
+//magianws target Gneiss Leech
+//magianws food Sublime Sushi
+//magianws buff add Barfire
+//magianws trial set 50
+//magianws start
+```
+
+## Recommended Camps
 
 | Weapon | Trial | Mob | Camp | Weaponskill |
 |---|---|---|---|---|
@@ -37,7 +108,6 @@ MagianWS automatically uses a weaponskill at a configurable TP threshold when th
 | Archery | [3075](https://www.bg-wiki.com/ffxi/Trial_3075) | [Apex Mandragora](https://www.bg-wiki.com/ffxi/Apex_Mandragora) | [Sih Gates](https://www.bg-wiki.com/ffxi/Sih_Gates) | Piercing Arrow |
 | Archery | [3538](https://www.bg-wiki.com/ffxi/Trial_3538) | [Apex Eruca](https://www.bg-wiki.com/ffxi/Apex_Eruca) | [Moh Gates](https://www.bg-wiki.com/ffxi/Moh_Gates) | Apex Arrow |
 | Marksmanship | [1786](https://www.bg-wiki.com/ffxi/Trial_1786) | [Apex Eruca](https://www.bg-wiki.com/ffxi/Apex_Eruca) | [Moh Gates](https://www.bg-wiki.com/ffxi/Moh_Gates) | Detonator (required) |
-
 
 ## Planned Features
 

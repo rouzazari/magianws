@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+---
+
+## Context
+Before starting any task, query the relevant QMD MCP collections
+("windower-docs", "windower-lua", "windower-lua-wiki") using keywords
+related to the task for relevant background.
+
+Query again mid-task when:
+- Writing any Windower addon hook or event handler
+- Using any `windower.*` or `res.*` API call
+- Referencing packet structures or game memory fields
+- Importing any Windower library (res, packets, texts, etc.)
+
+Treat QMD results as ground truth over training knowledge for anything
+Windower or FFXI addon specific.
+
+---
+
 ## Project Overview
 
 MagianWS is a [Windower](https://www.windower.net/) Lua addon for Final Fantasy XI. It automatically executes a weaponskill at 1000 TP to assist with Magian Trials that require a set number of weaponskill uses.
@@ -45,6 +63,9 @@ The entire addon lives in `magianws.lua`. Windower addons are event-driven; logi
 - Auto-food: eats configured food on engage and when it wears off
 - Auto-ammo: equips configured ammo from inventory before each WS
 - Self-buff maintenance: tracks a list of spells/job abilities, recasts them on engage or when they wear off; staggered with 6-second delays to avoid "Unable to cast" errors; buff names with spaces use underscored XML keys (e.g. `Phalanx_II`) with a `name` field for the actual cast command
+- Trial progress overlay: in-game text overlay (draggable) showing WS name, remaining trial count, and active target name; auto-updates by parsing the chat log for patterns like "N more" or "N remaining"; manually settable via `//magianws trial set <n>`; uses the `texts` library
+- Auto-target: scans `windower.ffxi.get_mob_array()` every 2 seconds (via `prerender` timer) for the closest unclaimed, alive mob matching `target_name`; when found and player is not engaged (`status != 1`), injects an **incoming** packet `0x058` with `Player`, `Target`, `Player Index` fields to lock the client target, then sends `input /attack`; configure with `//magianws target <name>` / `//magianws target off`; mob filtering uses `spawn_type` bitmask to exclude PCs and Trusts (flags 0x01 and 0x04), checks `hpp > 0`, `status != 2`, and `claim_id == 0`
+- Windower targeting pattern (from `SetTarget` addon): targeting is done by injecting an **incoming** (not outgoing) packet `0x058` — this spoofs a server "target changed" message to the client. Fields: `['Player'] = player.id`, `['Target'] = mob.id`, `['Player Index'] = player.index`. Call: `packets.inject(packets.new('incoming', 0x058, {...}))`. `/target <name>` is not a valid FFXI command. `windower.ffxi.interact()` does not exist.
 
 **Planned features (not yet implemented):**
 - Cast Composure before other buffs so it extends their duration
