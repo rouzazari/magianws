@@ -35,6 +35,7 @@ Automatically finds, targets, follows, and attacks a named mob.
 - **Follow mode** (default): locks the target then issues `/follow` to close distance and keep the character facing the mob; attacks with `/attack` once within 20 yalms.
 - **Pull mode**: fires one ranged attack (`/ra`) to aggro a single mob, then stands still until it walks into 20 yalm melee range before attacking. Avoids linking nearby mobs when grinding in groups. Requires a ranged weapon equipped.
 - While engaged, re-locks on the target every 2 seconds and issues `/follow` so the character always faces it — the lock releases after 1 second.
+- When a **home point** is set, mob selection is biased toward mobs closest to home (not closest to the player), pulling the character back toward camp between kills. When no matching mob is found and the player is far from home, the addon follows the nearest entity close to the home point to drift back.
 - Stops automatically on zone change.
 
 | Command | Description |
@@ -42,6 +43,9 @@ Automatically finds, targets, follows, and attacks a named mob.
 | `//magianws target <name>` | Set the mob name to auto-target |
 | `//magianws target off` | Clear the auto-target mob |
 | `//magianws pull on\|off` | Use ranged attack to pull mobs instead of following them (default: off) |
+| `//magianws home set` | Save current position as the home/return point |
+| `//magianws home clear` | Remove the home point |
+| `//magianws home` | Show home coordinates and current distance |
 | `//magianws start` | Begin the auto-target/follow/attack loop |
 | `//magianws stop` | Pause the auto-target loop (also stops on zone change) |
 
@@ -113,6 +117,7 @@ For a capacity point camp where mobs are grouped (use pull mode to avoid links):
 //magianws ws Trueflight
 //magianws target Apex Bat
 //magianws pull on
+//magianws home set
 //magianws start
 ```
 

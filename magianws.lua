@@ -39,6 +39,10 @@ defaults.provoke = false
 defaults.follow = false
 defaults.target_name = ''
 defaults.pull_mode = false
+defaults.home_set = false
+defaults.home_x = 0
+defaults.home_y = 0
+defaults.home_z = 0
 defaults.trial_remaining = -1
 defaults.display = {}
 defaults.display.pos = {}
@@ -92,7 +96,15 @@ local function update_display()
         local active_str = active and '\\cs(100,255,100)▶\\cr ' or '\\cs(160,160,160)■\\cr '
         target_line = '\n  Target: ' .. active_str .. '\\cs(255,180,80)' .. settings.target_name .. '\\cr'
     end
-    display:text(('\\cs(255,200,80)[ MagianWS ]\\cr\n  WS: \\cs(200,220,255)%s\\cr\n  Remaining: %s%s'):format(settings.ws_name, rem_str, target_line))
+    local home_line = ''
+    if settings.home_set then
+        local dist = home_distance()
+        if dist then
+            local color = dist <= HOME_RANGE and '100,255,100' or '255,140,80'
+            home_line = ('\n  Home: \\cs(%s)%.1fy\\cr'):format(color, dist)
+        end
+    end
+    display:text(('\\cs(255,200,80)[ MagianWS ]\\cr\n  WS: \\cs(200,220,255)%s\\cr\n  Remaining: %s%s%s'):format(settings.ws_name, rem_str, target_line, home_line))
     display:show()
 end
 
@@ -203,6 +215,11 @@ local function find_target_mob(name)
     local mobs = windower.ffxi.get_mob_array()
     if not mobs then return nil end
 
+    -- Rank by distance to home when set; otherwise by distance to player
+    local ref_x = settings.home_set and settings.home_x or me.x
+    local ref_y = settings.home_set and settings.home_y or me.y
+    local ref_z = settings.home_set and settings.home_z or me.z
+
     local lower_name = name:lower()
     local best, best_dist = nil, math.huge
 
@@ -214,13 +231,18 @@ local function find_target_mob(name)
                 and (mob.hpp or 0) > 0
                 and (mob.claim_id or 0) == 0
         then
-            local dx = mob.x - me.x
-            local dy = mob.y - me.y
-            local dz = mob.z - me.z
-            local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if dist <= 40 and dist < best_dist then
-                best_dist = dist
-                best = mob
+            local pdx = mob.x - me.x
+            local pdy = mob.y - me.y
+            local pdz = mob.z - me.z
+            if math.sqrt(pdx*pdx + pdy*pdy + pdz*pdz) <= 40 then
+                local rdx = mob.x - ref_x
+                local rdy = mob.y - ref_y
+                local rdz = mob.z - ref_z
+                local rank = math.sqrt(rdx*rdx + rdy*rdy + rdz*rdz)
+                if rank < best_dist then
+                    best_dist = rank
+                    best = mob
+                end
             end
         end
     end
@@ -231,10 +253,64 @@ local last_scan_tick  = 0
 local SCAN_INTERVAL   = 2.0
 local ATTACK_RANGE_SQ = 400  -- 20 yalms; mob.distance is squared
 local PULL_RANGE_SQ   = 625  -- 25 yalms; close enough for /ra but outside melee
+local HOME_RANGE      = 10   -- yalms; within this = considered at home
 local debug_target    = false
 local active          = false  -- start/stop toggle (not persisted)
 local unlock_at       = 0     -- os.clock() timestamp to send the lock-off packet
 local pull_sent       = false  -- true after /ra fired; reset when acquiring a new target
+
+local function home_distance()
+    if not settings.home_set then return nil end
+    local me = windower.ffxi.get_mob_by_target('me')
+    if not me then return nil end
+    local dx = settings.home_x - me.x
+    local dy = settings.home_y - me.y
+    local dz = settings.home_z - me.z
+    return math.sqrt(dx*dx + dy*dy + dz*dz)
+end
+
+-- When no mob is found: follow the entity closest to home to drift back toward camp
+local function try_return_home()
+    if not settings.home_set then return end
+    local dist = home_distance()
+    if not dist or dist <= HOME_RANGE then return end
+
+    local me = windower.ffxi.get_mob_by_target('me')
+    local mobs = windower.ffxi.get_mob_array()
+    if not me or not mobs then return end
+
+    local best, best_dist = nil, math.huge
+    for _, mob in pairs(mobs) do
+        if mob and mob.id and mob.id ~= 0 and mob.id ~= me.id and (mob.status or 0) ~= 2 then
+            local dx = mob.x - settings.home_x
+            local dy = mob.y - settings.home_y
+            local dz = mob.z - settings.home_z
+            local d = math.sqrt(dx*dx + dy*dy + dz*dz)
+            if d < best_dist then
+                best_dist = d
+                best = mob
+            end
+        end
+    end
+
+    -- Only follow if an entity is reasonably close to home
+    if best and best_dist <= 20 then
+        local player = windower.ffxi.get_player()
+        if player then
+            dbg('returning home via entity "' .. (best.name or '?') .. '" (home_dist=' .. string.format('%.1f', dist) .. 'y)')
+            pcall(function()
+                packets.inject(packets.new('incoming', 0x058, {
+                    ['Player']       = player.id,
+                    ['Target']       = best.id,
+                    ['Player Index'] = player.index,
+                }))
+            end)
+            windower.send_command('input /follow <t>')
+        end
+    else
+        dbg('far from home (' .. string.format('%.1f', dist) .. 'y) — no nearby entity to follow back')
+    end
+end
 
 local function dbg(msg)
     if debug_target then
@@ -371,6 +447,7 @@ local function try_engage_target()
         end
     else
         dbg('find_target_mob returned nil')
+        try_return_home()
     end
 end
 
@@ -393,6 +470,7 @@ windower.register_event('prerender', function()
 
     if now >= last_scan_tick + SCAN_INTERVAL then
         last_scan_tick = now
+        if settings.home_set then update_display() end
         try_engage_target()
     end
 end)
@@ -401,7 +479,8 @@ local function print_status()
     local buff_count = 0
     for _ in pairs(settings.buffs) do buff_count = buff_count + 1 end
     local rem_str = settings.trial_remaining >= 0 and tostring(settings.trial_remaining) or '?'
-    windower.add_to_chat(8, 'MagianWS: Weaponskill: "' .. settings.ws_name .. '" | TP threshold: ' .. settings.tp_threshold .. ' | Remaining: ' .. rem_str .. ' | Food: ' .. (settings.food_name ~= '' and settings.food_name or 'off') .. ' | Ammo: ' .. (settings.ammo_name ~= '' and settings.ammo_name or 'off') .. ' | Buffs: ' .. buff_count .. ' | Provoke: ' .. (settings.provoke and 'on' or 'off') .. ' | Follow: ' .. (settings.follow and 'on' or 'off') .. ' | Pull: ' .. (settings.pull_mode and 'on' or 'off') .. ' | Target: ' .. (settings.target_name ~= '' and '"' .. settings.target_name .. '"' or 'off') .. ' | Active: ' .. (active and 'yes' or 'no'))
+    local home_str = settings.home_set and ('(%.1f, %.1f, %.1f)'):format(settings.home_x, settings.home_y, settings.home_z) or 'off'
+    windower.add_to_chat(8, 'MagianWS: Weaponskill: "' .. settings.ws_name .. '" | TP threshold: ' .. settings.tp_threshold .. ' | Remaining: ' .. rem_str .. ' | Food: ' .. (settings.food_name ~= '' and settings.food_name or 'off') .. ' | Ammo: ' .. (settings.ammo_name ~= '' and settings.ammo_name or 'off') .. ' | Buffs: ' .. buff_count .. ' | Provoke: ' .. (settings.provoke and 'on' or 'off') .. ' | Follow: ' .. (settings.follow and 'on' or 'off') .. ' | Pull: ' .. (settings.pull_mode and 'on' or 'off') .. ' | Home: ' .. home_str .. ' | Target: ' .. (settings.target_name ~= '' and '"' .. settings.target_name .. '"' or 'off') .. ' | Active: ' .. (active and 'yes' or 'no'))
 end
 
 local function try_eat_food_if_engaged()
@@ -512,6 +591,35 @@ windower.register_event('addon command', function(cmd, ...)
         end
         settings:save()
         print_status()
+    elseif cmd == 'home' then
+        local arg = (...)
+        if arg == 'set' then
+            local me = windower.ffxi.get_mob_by_target('me')
+            if me then
+                settings.home_set = true
+                settings.home_x = me.x
+                settings.home_y = me.y
+                settings.home_z = me.z
+                settings:save()
+                windower.add_to_chat(8, ('MagianWS: Home set to (%.1f, %.1f, %.1f).'):format(me.x, me.y, me.z))
+                update_display()
+            else
+                windower.add_to_chat(8, 'MagianWS: Could not read player position.')
+            end
+        elseif arg == 'clear' then
+            settings.home_set = false
+            settings:save()
+            windower.add_to_chat(8, 'MagianWS: Home point cleared.')
+            update_display()
+        else
+            if settings.home_set then
+                local dist = home_distance()
+                local dist_str = dist and string.format('%.1f', dist) .. 'y away' or 'unknown'
+                windower.add_to_chat(8, ('MagianWS: Home at (%.1f, %.1f, %.1f) — %s.'):format(settings.home_x, settings.home_y, settings.home_z, dist_str))
+            else
+                windower.add_to_chat(8, 'MagianWS: No home point set. Use //magianws home set.')
+            end
+        end
     elseif cmd == 'pull' then
         local arg = (...)
         if arg == 'on' then
