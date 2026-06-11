@@ -246,7 +246,7 @@ local function try_engage_target()
     if not active then return end
     if settings.target_name == '' then return end
     local player = windower.ffxi.get_player()
-    if not player or (player.hp or 0) == 0 then return end
+    if not player or (player.status ~= 0 and player.status ~= 1) then return end
     dbg('scan | status=' .. tostring(player.status) .. ' target="' .. settings.target_name .. '"')
 
     if player.status == 1 then
@@ -637,7 +637,7 @@ end)
 
 windower.register_event('tp change', function(new_tp, old_tp)
     local player = windower.ffxi.get_player()
-    if player and (player.hp or 0) > 0 and player.status == 1 then
+    if player and player.status == 1 then
         try_provoke()
         if new_tp >= settings.tp_threshold then
             execute_ws()
