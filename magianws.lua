@@ -230,6 +230,7 @@ end
 local last_scan_tick  = 0
 local SCAN_INTERVAL   = 2.0
 local ATTACK_RANGE_SQ = 400  -- 20 yalms; mob.distance is squared
+local PULL_RANGE_SQ   = 625  -- 25 yalms; close enough for /ra but outside melee
 local debug_target    = false
 local active          = false  -- start/stop toggle (not persisted)
 local unlock_at       = 0     -- os.clock() timestamp to send the lock-off packet
@@ -274,9 +275,14 @@ local function try_engage_target()
         local dist_sq = current_target.distance or math.huge
         if settings.pull_mode then
             if not pull_sent then
-                dbg('pull mode — firing ranged attack')
-                windower.send_command('input /ra <t>')
-                pull_sent = true
+                if dist_sq <= PULL_RANGE_SQ then
+                    dbg('pull mode — in RA range, firing (dist_sq=' .. tostring(dist_sq) .. ')')
+                    windower.send_command('input /ra <t>')
+                    pull_sent = true
+                else
+                    dbg('pull mode — approaching to pull (dist_sq=' .. tostring(dist_sq) .. ')')
+                    windower.send_command('input /follow <t>')
+                end
             elseif dist_sq <= ATTACK_RANGE_SQ then
                 dbg('in range — attacking')
                 windower.send_command('input /attack')
@@ -357,14 +363,8 @@ local function try_engage_target()
             }))
         end)
         if ok then
-            if settings.pull_mode then
-                dbg('targeted — firing ranged attack')
-                windower.send_command('input /ra <t>')
-                pull_sent = true
-            else
-                dbg('targeted — following')
-                windower.send_command('input /follow <t>')
-            end
+            dbg(settings.pull_mode and 'targeted — approaching to pull' or 'targeted — following')
+            windower.send_command('input /follow <t>')
         else
             dbg('packet error: ' .. tostring(err))
         end
@@ -645,6 +645,7 @@ windower.register_event('tp change', function(new_tp, old_tp)
 end)
 
 windower.register_event('zone change', function()
+    pull_sent = false
     if active then
         active = false
         windower.add_to_chat(8, 'MagianWS: Stopped — zone change detected.')
