@@ -80,6 +80,18 @@ local function parse_trial_remaining(lower_text)
         or tonumber(lower_text:match('remaining[^%d]*(%d+)'))
 end
 
+local HOME_RANGE = 10  -- yalms; within this = considered at home
+
+local function home_distance()
+    if not settings.home_set then return nil end
+    local me = windower.ffxi.get_mob_by_target('me')
+    if not me then return nil end
+    local dx = settings.home_x - me.x
+    local dy = settings.home_y - me.y
+    local dz = settings.home_z - me.z
+    return math.sqrt(dx*dx + dy*dy + dz*dz)
+end
+
 local function update_display()
     if not display_visible then
         display:hide()
@@ -258,21 +270,10 @@ local last_scan_tick  = 0
 local SCAN_INTERVAL   = 2.0
 local ATTACK_RANGE_SQ = 400  -- 20 yalms; mob.distance is squared
 local PULL_RANGE_SQ   = 625  -- 25 yalms; close enough for /ra but outside melee
-local HOME_RANGE      = 10   -- yalms; within this = considered at home
 local debug_target    = false
 local active          = false  -- start/stop toggle (not persisted)
 local unlock_at       = 0     -- os.clock() timestamp to send the lock-off packet
 local pull_sent       = false  -- true after /ra fired; reset when acquiring a new target
-
-local function home_distance()
-    if not settings.home_set then return nil end
-    local me = windower.ffxi.get_mob_by_target('me')
-    if not me then return nil end
-    local dx = settings.home_x - me.x
-    local dy = settings.home_y - me.y
-    local dz = settings.home_z - me.z
-    return math.sqrt(dx*dx + dy*dy + dz*dz)
-end
 
 -- When no mob is found: follow the entity closest to home to drift back toward camp
 local function try_return_home()
