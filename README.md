@@ -6,7 +6,9 @@
 
 ## Description
 
-MagianWS automates Magian Trial grinding. It automatically uses a weaponskill at a configurable TP threshold while engaged, and optionally handles mob targeting, following, food, ammo, and self-buffs so you can AFK grind a camp.
+MagianWS automates mob grinding. It automatically uses a weaponskill at a configurable TP threshold while engaged, and optionally handles mob targeting, following, food, ammo, and self-buffs so you can AFK grind a camp.
+
+Originally built for Magian Trials, it also works for farming experience points, capacity points, and exemplar points against any named mob type.
 
 ## Loading
 
@@ -27,14 +29,20 @@ MagianWS automates Magian Trial grinding. It automatically uses a weaponskill at
 
 ### Auto-Target
 
-Automatically finds, targets, and follows a named mob. Attacks when within 20 yalms.
+Automatically finds, targets, follows, and attacks a named mob.
+
+- Scans for unclaimed, alive mobs matching `target_name` within **40 yalms** every 2 seconds.
+- Locks the target via packet injection, then issues `/follow` to close distance and keep the character facing the mob.
+- Attacks with `/attack` once the mob is within 20 yalms.
+- While engaged, re-locks on the target every 2 seconds and issues `/follow` so the character always faces it — the lock releases after 1 second to avoid interfering with normal controls.
+- Stops automatically on zone change.
 
 | Command | Description |
 |---|---|
 | `//magianws target <name>` | Set the mob name to auto-target |
 | `//magianws target off` | Clear the auto-target mob |
 | `//magianws start` | Begin the auto-target/follow/attack loop |
-| `//magianws stop` | Pause the auto-target loop |
+| `//magianws stop` | Pause the auto-target loop (also stops on zone change) |
 
 ### Consumables
 

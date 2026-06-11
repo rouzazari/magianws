@@ -217,7 +217,7 @@ local function find_target_mob(name)
             local dy = mob.y - me.y
             local dz = mob.z - me.z
             local dist = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if dist <= 30 and dist < best_dist then
+            if dist <= 40 and dist < best_dist then
                 best_dist = dist
                 best = mob
             end
@@ -231,6 +231,7 @@ local SCAN_INTERVAL   = 2.0
 local ATTACK_RANGE_SQ = 400  -- 20 yalms; mob.distance is squared
 local debug_target    = false
 local active          = false  -- start/stop toggle (not persisted)
+local unlock_at       = 0     -- os.clock() timestamp to send the lock-off packet
 
 local function dbg(msg)
     if debug_target then
@@ -243,7 +244,22 @@ local function try_engage_target()
     if settings.target_name == '' then return end
     local player = windower.ffxi.get_player()
     dbg('scan | status=' .. tostring(player.status) .. ' target="' .. settings.target_name .. '"')
-    if player.status == 1 then return end
+
+    if player.status == 1 then
+        local current_target = windower.ffxi.get_mob_by_target('t')
+        if current_target then
+            pcall(function()
+                packets.inject(packets.new('incoming', 0x058, {
+                    ['Player']       = player.id,
+                    ['Target']       = current_target.id,
+                    ['Player Index'] = player.index,
+                }))
+            end)
+            windower.send_command('input /follow <t>')
+            unlock_at = os.clock() + 1.0
+        end
+        return
+    end
 
     local lower_name = settings.target_name:lower()
 
@@ -337,6 +353,21 @@ end
 
 windower.register_event('prerender', function()
     local now = os.clock()
+
+    if unlock_at > 0 and now >= unlock_at then
+        unlock_at = 0
+        local player = windower.ffxi.get_player()
+        if player then
+            pcall(function()
+                packets.inject(packets.new('incoming', 0x058, {
+                    ['Player']       = player.id,
+                    ['Target']       = 0,
+                    ['Player Index'] = player.index,
+                }))
+            end)
+        end
+    end
+
     if now >= last_scan_tick + SCAN_INTERVAL then
         last_scan_tick = now
         try_engage_target()
