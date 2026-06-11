@@ -231,10 +231,15 @@ local function find_target_mob(name)
                 and (mob.hpp or 0) > 0
                 and (mob.claim_id or 0) == 0
         then
-            local pdx = mob.x - me.x
-            local pdy = mob.y - me.y
-            local pdz = mob.z - me.z
-            if math.sqrt(pdx*pdx + pdy*pdy + pdz*pdz) <= 40 then
+            -- When anchored at home with pull mode, only consider mobs within RA range of home
+            local max_range = (settings.home_set and settings.pull_mode) and math.sqrt(PULL_RANGE_SQ) or 40
+            local origin_x  = (settings.home_set and settings.pull_mode) and settings.home_x or me.x
+            local origin_y  = (settings.home_set and settings.pull_mode) and settings.home_y or me.y
+            local origin_z  = (settings.home_set and settings.pull_mode) and settings.home_z or me.z
+            local pdx = mob.x - origin_x
+            local pdy = mob.y - origin_y
+            local pdz = mob.z - origin_z
+            if math.sqrt(pdx*pdx + pdy*pdy + pdz*pdz) <= max_range then
                 local rdx = mob.x - ref_x
                 local rdy = mob.y - ref_y
                 local rdz = mob.z - ref_z
@@ -356,9 +361,11 @@ local function try_engage_target()
                     dbg('pull mode — in RA range, firing (dist_sq=' .. tostring(dist_sq) .. ')')
                     windower.send_command('input /ra <t>')
                     pull_sent = true
-                else
+                elseif not settings.home_set then
                     dbg('pull mode — approaching to pull (dist_sq=' .. tostring(dist_sq) .. ')')
                     windower.send_command('input /follow <t>')
+                else
+                    dbg('pull mode — mob out of RA range, holding position (dist_sq=' .. tostring(dist_sq) .. ')')
                 end
             elseif dist_sq <= ATTACK_RANGE_SQ then
                 dbg('in range — attacking')
