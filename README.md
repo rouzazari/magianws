@@ -32,15 +32,16 @@ Originally built for Magian Trials, it also works for farming experience points,
 Automatically finds, targets, follows, and attacks a named mob.
 
 - Scans for unclaimed, alive mobs matching `target_name` within **40 yalms** every 2 seconds.
-- Locks the target via packet injection, then issues `/follow` to close distance and keep the character facing the mob.
-- Attacks with `/attack` once the mob is within 20 yalms.
-- While engaged, re-locks on the target every 2 seconds and issues `/follow` so the character always faces it — the lock releases after 1 second to avoid interfering with normal controls.
+- **Follow mode** (default): locks the target then issues `/follow` to close distance and keep the character facing the mob; attacks with `/attack` once within 20 yalms.
+- **Pull mode**: fires one ranged attack (`/ra`) to aggro a single mob, then stands still until it walks into 20 yalm melee range before attacking. Avoids linking nearby mobs when grinding in groups. Requires a ranged weapon equipped.
+- While engaged, re-locks on the target every 2 seconds and issues `/follow` so the character always faces it — the lock releases after 1 second.
 - Stops automatically on zone change.
 
 | Command | Description |
 |---|---|
 | `//magianws target <name>` | Set the mob name to auto-target |
 | `//magianws target off` | Clear the auto-target mob |
+| `//magianws pull on\|off` | Use ranged attack to pull mobs instead of following them (default: off) |
 | `//magianws start` | Begin the auto-target/follow/attack loop |
 | `//magianws stop` | Pause the auto-target loop (also stops on zone change) |
 
@@ -104,6 +105,14 @@ The overlay shows the active WS, remaining trial count, and auto-target status (
 //magianws food Sublime Sushi
 //magianws buff add Barfire
 //magianws trial set 50
+//magianws start
+```
+
+For a capacity point camp where mobs are grouped (use pull mode to avoid links):
+```
+//magianws ws Trueflight
+//magianws target Apex Bat
+//magianws pull on
 //magianws start
 ```
 

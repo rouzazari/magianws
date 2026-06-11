@@ -38,6 +38,7 @@ defaults.buffs = {}
 defaults.provoke = false
 defaults.follow = false
 defaults.target_name = ''
+defaults.pull_mode = false
 defaults.trial_remaining = -1
 defaults.display = {}
 defaults.display.pos = {}
@@ -232,6 +233,7 @@ local ATTACK_RANGE_SQ = 400  -- 20 yalms; mob.distance is squared
 local debug_target    = false
 local active          = false  -- start/stop toggle (not persisted)
 local unlock_at       = 0     -- os.clock() timestamp to send the lock-off packet
+local pull_sent       = false  -- true after /ra fired; reset when acquiring a new target
 
 local function dbg(msg)
     if debug_target then
@@ -270,16 +272,30 @@ local function try_engage_target()
             and (current_target.hpp or 0) > 0
             and (current_target.status or 0) ~= 2 then
         local dist_sq = current_target.distance or math.huge
-        dbg('following (dist_sq=' .. tostring(dist_sq) .. ')')
-        windower.send_command('input /follow <t>')
-        if dist_sq <= ATTACK_RANGE_SQ then
-            dbg('in range — attacking')
-            windower.send_command('input /attack')
+        if settings.pull_mode then
+            if not pull_sent then
+                dbg('pull mode — firing ranged attack')
+                windower.send_command('input /ra <t>')
+                pull_sent = true
+            elseif dist_sq <= ATTACK_RANGE_SQ then
+                dbg('in range — attacking')
+                windower.send_command('input /attack')
+            else
+                dbg('pull mode — waiting for mob (dist_sq=' .. tostring(dist_sq) .. ')')
+            end
+        else
+            dbg('following (dist_sq=' .. tostring(dist_sq) .. ')')
+            windower.send_command('input /follow <t>')
+            if dist_sq <= ATTACK_RANGE_SQ then
+                dbg('in range — attacking')
+                windower.send_command('input /attack')
+            end
         end
         return
     end
 
     -- No valid target yet — scan and lock on to the closest matching mob
+    pull_sent = false
     local mobs = windower.ffxi.get_mob_array()
     if not mobs then
         dbg('get_mob_array() returned nil')
@@ -341,8 +357,14 @@ local function try_engage_target()
             }))
         end)
         if ok then
-            dbg('targeted — following')
-            windower.send_command('input /follow <t>')
+            if settings.pull_mode then
+                dbg('targeted — firing ranged attack')
+                windower.send_command('input /ra <t>')
+                pull_sent = true
+            else
+                dbg('targeted — following')
+                windower.send_command('input /follow <t>')
+            end
         else
             dbg('packet error: ' .. tostring(err))
         end
@@ -378,7 +400,7 @@ local function print_status()
     local buff_count = 0
     for _ in pairs(settings.buffs) do buff_count = buff_count + 1 end
     local rem_str = settings.trial_remaining >= 0 and tostring(settings.trial_remaining) or '?'
-    windower.add_to_chat(8, 'MagianWS: Weaponskill: "' .. settings.ws_name .. '" | TP threshold: ' .. settings.tp_threshold .. ' | Remaining: ' .. rem_str .. ' | Food: ' .. (settings.food_name ~= '' and settings.food_name or 'off') .. ' | Ammo: ' .. (settings.ammo_name ~= '' and settings.ammo_name or 'off') .. ' | Buffs: ' .. buff_count .. ' | Provoke: ' .. (settings.provoke and 'on' or 'off') .. ' | Follow: ' .. (settings.follow and 'on' or 'off') .. ' | Target: ' .. (settings.target_name ~= '' and '"' .. settings.target_name .. '"' or 'off') .. ' | Active: ' .. (active and 'yes' or 'no'))
+    windower.add_to_chat(8, 'MagianWS: Weaponskill: "' .. settings.ws_name .. '" | TP threshold: ' .. settings.tp_threshold .. ' | Remaining: ' .. rem_str .. ' | Food: ' .. (settings.food_name ~= '' and settings.food_name or 'off') .. ' | Ammo: ' .. (settings.ammo_name ~= '' and settings.ammo_name or 'off') .. ' | Buffs: ' .. buff_count .. ' | Provoke: ' .. (settings.provoke and 'on' or 'off') .. ' | Follow: ' .. (settings.follow and 'on' or 'off') .. ' | Pull: ' .. (settings.pull_mode and 'on' or 'off') .. ' | Target: ' .. (settings.target_name ~= '' and '"' .. settings.target_name .. '"' or 'off') .. ' | Active: ' .. (active and 'yes' or 'no'))
 end
 
 local function try_eat_food_if_engaged()
@@ -485,6 +507,18 @@ windower.register_event('addon command', function(cmd, ...)
             settings.follow = false
         else
             windower.add_to_chat(8, 'MagianWS: Usage: follow on|off')
+            return
+        end
+        settings:save()
+        print_status()
+    elseif cmd == 'pull' then
+        local arg = (...)
+        if arg == 'on' then
+            settings.pull_mode = true
+        elseif arg == 'off' then
+            settings.pull_mode = false
+        else
+            windower.add_to_chat(8, 'MagianWS: Usage: pull on|off')
             return
         end
         settings:save()
