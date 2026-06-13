@@ -359,8 +359,9 @@ local function try_engage_target()
         if settings.pull_mode then
             if not pull_sent then
                 if dist_sq <= PULL_RANGE_SQ then
-                    dbg('pull mode — in RA range, firing (dist_sq=' .. tostring(dist_sq) .. ')')
-                    windower.send_command('input /ra <t>')
+                    dbg('pull mode — in RA range, turning to face then firing (dist_sq=' .. tostring(dist_sq) .. ')')
+                    windower.send_command('input /follow <t>')
+                    windower.send_command('wait 0.5; input /ra <t>')
                     pull_sent = true
                 elseif not settings.home_set then
                     dbg('pull mode — approaching to pull (dist_sq=' .. tostring(dist_sq) .. ')')
