@@ -332,19 +332,17 @@ local function try_engage_target()
     dbg('scan | status=' .. tostring(player.status) .. ' target="' .. settings.target_name .. '"')
 
     if player.status == 1 then
-        if not settings.home_set then
-            local current_target = windower.ffxi.get_mob_by_target('t')
-            if current_target then
-                pcall(function()
-                    packets.inject(packets.new('incoming', 0x058, {
-                        ['Player']       = player.id,
-                        ['Target']       = current_target.id,
-                        ['Player Index'] = player.index,
-                    }))
-                end)
-                windower.send_command('input /follow <t>')
-                unlock_at = os.clock() + 1.0
-            end
+        local current_target = windower.ffxi.get_mob_by_target('t')
+        if current_target then
+            pcall(function()
+                packets.inject(packets.new('incoming', 0x058, {
+                    ['Player']       = player.id,
+                    ['Target']       = current_target.id,
+                    ['Player Index'] = player.index,
+                }))
+            end)
+            windower.send_command('input /follow <t>')
+            unlock_at = os.clock() + 1.0
         end
         return
     end
