@@ -34,7 +34,7 @@ Automatically finds, targets, follows, and attacks a named mob.
 - Scans for unclaimed, alive mobs matching `target_name` within **40 yalms** every 2 seconds.
 - **Follow mode** (default): locks the target then issues `/follow` to close distance and keep the character facing the mob; attacks with `/attack` once within 20 yalms.
 - **Pull mode**: fires one ranged attack (`/ra`) to aggro a single mob, then stands still until it walks into 20 yalm melee range before attacking. Avoids linking nearby mobs when grinding in groups. Requires a ranged weapon equipped.
-- While engaged, re-locks on the target every 2 seconds and issues `/follow` so the character always faces it — the lock releases after 1 second.
+- While engaged, re-locks on the target every 2 seconds and faces the mob. With `follow on`, also issues `/follow` to keep closing distance — the lock releases after 1 second. With `follow off` (default), the character stands still and only turns to face the mob.
 - When a **home point** is set, mob selection is biased toward mobs closest to home (not closest to the player), pulling the character back toward camp between kills. When no matching mob is found and the player is far from home, the addon follows the nearest entity close to the home point to drift back.
 - Stops automatically on zone change.
 
@@ -43,6 +43,7 @@ Automatically finds, targets, follows, and attacks a named mob.
 | `//magianws target <name>` | Set the mob name to auto-target |
 | `//magianws target off` | Clear the auto-target mob |
 | `//magianws pull on\|off` | Use ranged attack to pull mobs instead of following them (default: off) |
+| `//magianws range <yalms>` | Only consider mobs within this distance (default: 40) |
 | `//magianws home set` | Save current position as the home/return point |
 | `//magianws home clear` | Remove the home point |
 | `//magianws home` | Show home coordinates and current distance |
@@ -57,6 +58,8 @@ Automatically finds, targets, follows, and attacks a named mob.
 | `//magianws food off` | Disable auto-food |
 | `//magianws ammo <name>` | Auto-equip this ammo from inventory before each WS |
 | `//magianws ammo off` | Disable auto-ammo |
+| `//magianws item <name>` | Auto-use this item whenever it's in inventory (for rare/ex drops) |
+| `//magianws item off` | Disable auto-use item |
 
 ### Self-Buffs
 
@@ -73,7 +76,7 @@ Buffs are cast on engage and recast when they wear off, staggered by 6 seconds e
 | Command | Description |
 |---|---|
 | `//magianws provoke on\|off` | Auto-provoke the current target every 30 seconds |
-| `//magianws follow on\|off` | Re-follow the current target on "out of range" or "cannot see" messages |
+| `//magianws follow on\|off` | Follow the target while engaged (default: off); when off, character faces the mob but stands still |
 
 ### Trial Progress
 

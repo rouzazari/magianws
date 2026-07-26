@@ -14,6 +14,7 @@ config = require('config')
 texts = require('texts')
 local res = require('resources')
 local packets = require('packets')
+local sc_data = require('sc_data')
 
 local COLOR_PAT = '[' .. string.char(0x1e, 0x1f) .. '].'
 local COLOR_RESET = string.char(0x7f)
@@ -31,19 +32,27 @@ end
 
 local defaults = {}
 defaults.ws_name = 'Piercing Arrow'
+defaults.ws2_name = ''
 defaults.tp_threshold = 1000
 defaults.food_name = ''
 defaults.ammo_name = ''
-defaults.buffs = {}
+defaults.buff_sets = {}
+defaults.active_buff_set = ''
 defaults.provoke = false
 defaults.follow = false
-defaults.target_name = ''
+defaults.target_names = {}
 defaults.pull_mode = false
+defaults.pull_range = 25
+defaults.pull_method = 'ra'
 defaults.home_set = false
 defaults.home_x = 0
 defaults.home_y = 0
 defaults.home_z = 0
 defaults.trial_remaining = -1
+defaults.mode = 'trials'
+defaults.target_spells = {}
+defaults.use_item = ''
+defaults.scan_range = 40
 defaults.display = {}
 defaults.display.pos = {}
 defaults.display.pos.x = 100
@@ -69,6 +78,14 @@ local settings = config.load(defaults)
 local display = texts.new('', settings.display, settings)
 local display_visible = true
 
+local session_start = os.time()
+local session_exp   = 0
+local session_cp    = 0
+local session_ep    = 0
+
+local _init_player  = windower.ffxi.get_player()
+local player_name_lower = _init_player and _init_player.name and _init_player.name:lower() or ''
+
 local last_provoke_time = 0
 local PROVOKE_RECAST = 30
 
@@ -81,7 +98,7 @@ local function parse_trial_remaining(lower_text)
 end
 
 local ATTACK_RANGE_SQ = 400  -- 20 yalms; mob.distance is squared
-local PULL_RANGE_SQ   = 625  -- 25 yalms; close enough for /ra but outside melee
+-- PULL_RANGE_SQ derived from settings.pull_range at use time (mob.distance is squared)
 local HOME_RANGE      = 10   -- yalms; within this = considered at home
 
 local function home_distance()
@@ -94,21 +111,54 @@ local function home_distance()
     return math.sqrt(dx*dx + dy*dy + dz*dz)
 end
 
+local function format_rate(total)
+    local elapsed = os.time() - session_start
+    if elapsed < 1 then return '---' end
+    local n = math.floor(total / (elapsed / 3600))
+    return tostring(n):reverse():gsub('(%d%d%d)', '%1,'):reverse():gsub('^,', '')
+end
+
+local function has_targets()
+    return next(settings.target_names) ~= nil
+end
+
+local function is_target_mob(mob_name)
+    local lower = mob_name:lower()
+    for _, entry in pairs(settings.target_names) do
+        if entry.name:lower() == lower then return true end
+    end
+    return false
+end
+
+local function target_names_display()
+    local names = {}
+    for _, entry in pairs(settings.target_names) do
+        names[#names+1] = entry.name
+    end
+    table.sort(names)
+    return table.concat(names, ', ')
+end
+
 local function update_display()
     if not display_visible then
         display:hide()
         return
     end
-    local rem_str
-    if settings.trial_remaining < 0 then
-        rem_str = '\\cs(160,160,160)?\\cr'
-    else
-        rem_str = ('\\cs(100,255,100)%d\\cr'):format(settings.trial_remaining)
+    local mode_label = settings.mode == 'exp' and '\\cs(160,220,160)Exp\\cr' or '\\cs(255,180,80)Trials\\cr'
+    local rem_line = ''
+    if settings.mode == 'trials' then
+        local rem_str
+        if settings.trial_remaining < 0 then
+            rem_str = '\\cs(160,160,160)?\\cr'
+        else
+            rem_str = ('\\cs(100,255,100)%d\\cr'):format(settings.trial_remaining)
+        end
+        rem_line = '\n  Remaining: ' .. rem_str
     end
     local target_line = ''
-    if settings.target_name ~= '' then
+    if has_targets() then
         local active_str = active and '\\cs(100,255,100)▶\\cr ' or '\\cs(160,160,160)■\\cr '
-        target_line = '\n  Target: ' .. active_str .. '\\cs(255,180,80)' .. settings.target_name .. '\\cr'
+        target_line = '\n  Target: ' .. active_str .. '\\cs(255,180,80)' .. target_names_display() .. '\\cr'
     end
     local home_line = ''
     if settings.home_set then
@@ -118,7 +168,20 @@ local function update_display()
             home_line = ('\n  Home: \\cs(%s)%.1fy\\cr'):format(color, dist)
         end
     end
-    display:text(('\\cs(255,200,80)[ MagianWS ]\\cr\n  WS: \\cs(200,220,255)%s\\cr\n  Remaining: %s%s%s'):format(settings.ws_name, rem_str, target_line, home_line))
+    local rate_lines = ''
+    if session_exp > 0 then
+        rate_lines = rate_lines .. ('\n  EXP/hr:  \\cs(200,220,255)%s\\cr'):format(format_rate(session_exp))
+    end
+    if session_cp > 0 then
+        rate_lines = rate_lines .. ('\n  CP/hr:   \\cs(200,220,255)%s\\cr'):format(format_rate(session_cp))
+    end
+    if session_ep > 0 then
+        rate_lines = rate_lines .. ('\n  EP/hr:   \\cs(200,220,255)%s\\cr'):format(format_rate(session_ep))
+    end
+    local ws_display = settings.ws2_name ~= ''
+        and (settings.ws_name .. ' \\cs(160,160,160)→\\cr \\cs(200,220,255)' .. settings.ws2_name .. '\\cr')
+        or settings.ws_name
+    display:text(('\\cs(255,200,80)[ MagianWS | %s]\\cr\n  WS: \\cs(200,220,255)%s\\cr%s%s%s%s'):format(mode_label, ws_display, rem_line, target_line, home_line, rate_lines))
     display:show()
 end
 
@@ -155,9 +218,20 @@ local function find_buff_info(name)
     end
     if res.job_abilities then
         for _, ja in pairs(res.job_abilities) do
-            if ja.en and ja.en:lower() == lower and ja.status and ja.status ~= 0 then
-                return {name = ja.en, type = 'ability', buff_id = ja.status}
+            if ja.en and ja.en:lower() == lower then
+                local bid = (ja.status and ja.status ~= 0) and ja.status or 0
+                return {name = ja.en, type = 'ability', buff_id = bid, recast_id = ja.recast_id}
             end
+        end
+    end
+    return nil
+end
+
+local function find_spell_name(name)
+    local lower = name:lower()
+    for _, spell in pairs(res.spells) do
+        if spell.en and spell.en:lower() == lower then
+            return spell.en
         end
     end
     return nil
@@ -186,21 +260,83 @@ local function cast_buff(name, buff_type, delay)
     end
 end
 
+local last_buff_attempt = {}
+local BUFF_ATTEMPT_COOLDOWN = 20.0
+
+local last_target_spell_cast = {}
+local TARGET_SPELL_INTERVAL  = 60  -- default seconds between target spell recasts
+local target_spell_delay_until = 0  -- os.clock() after which target spells may fire
+
+local function get_active_buffs()
+    if settings.active_buff_set == '' then return {} end
+    return settings.buff_sets[settings.active_buff_set] or {}
+end
+
 local function maintain_buffs()
     local player = windower.ffxi.get_player()
     if player.status ~= 1 then return end
     local delay = 0
-    for _, entry in pairs(settings.buffs) do
-        if not is_buff_active(entry.buff_id) then
-            cast_buff(entry.name, entry.type, delay)
-            delay = delay + 6
+    local now = os.clock()
+    local ab_recasts = nil
+    for _, entry in pairs(get_active_buffs()) do
+        local needs_cast
+        if (entry.buff_id or 0) == 0 then
+            -- Ability with no status effect (e.g. Meditate): cast when off recast
+            if not ab_recasts then ab_recasts = windower.ffxi.get_ability_recasts() end
+            local recast = entry.recast_id and (ab_recasts[entry.recast_id] or 0) or 0
+            needs_cast = (recast == 0)
+        else
+            needs_cast = not is_buff_active(entry.buff_id)
+        end
+        if needs_cast then
+            local last = last_buff_attempt[entry.name] or 0
+            if now >= last + BUFF_ATTEMPT_COOLDOWN then
+                cast_buff(entry.name, entry.type, delay)
+                last_buff_attempt[entry.name] = now + delay
+                delay = delay + 6
+            end
         end
     end
 end
 
+local function maintain_target_spells()
+    local player = windower.ffxi.get_player()
+    if player.status ~= 1 then return end
+    if os.clock() < target_spell_delay_until then return end
+    if next(settings.target_spells) == nil then return end
+    local now = os.time()
+    local delay = 0
+    for _, entry in pairs(settings.target_spells) do
+        local duration = entry.duration or TARGET_SPELL_INTERVAL
+        local last = last_target_spell_cast[entry.name] or 0
+        if now >= last + duration then
+            last_target_spell_cast[entry.name] = now + delay
+            if delay > 0 then
+                windower.send_command('wait ' .. delay .. '; input /ma "' .. entry.name .. '" <t>')
+            else
+                windower.send_command('input /ma "' .. entry.name .. '" <t>')
+            end
+            delay = delay + 3
+        end
+    end
+end
+
+local last_item_use     = 0
+local ITEM_USE_COOLDOWN = 5.0
+
 local function try_eat_food()
     if settings.food_name ~= '' and not is_food_active() and find_in_inventory(settings.food_name) then
         windower.send_command('input /item "' .. settings.food_name .. '" <me>')
+    end
+end
+
+local function try_use_item()
+    if settings.use_item == '' then return end
+    local now = os.clock()
+    if now < last_item_use + ITEM_USE_COOLDOWN then return end
+    if find_in_inventory(settings.use_item) then
+        last_item_use = now
+        windower.send_command('input /item "' .. settings.use_item .. '" <me>')
     end
 end
 
@@ -223,7 +359,7 @@ local function try_provoke()
     windower.send_command('input /ja "Provoke" <t>')
 end
 
-local function find_target_mob(name)
+local function find_target_mob()
     local me = windower.ffxi.get_mob_by_target('me')
     if not me then return nil end
     local mobs = windower.ffxi.get_mob_array()
@@ -234,19 +370,18 @@ local function find_target_mob(name)
     local ref_y = settings.home_set and settings.home_y or me.y
     local ref_z = settings.home_set and settings.home_z or me.z
 
-    local lower_name = name:lower()
     local best, best_dist = nil, math.huge
 
     for _, mob in pairs(mobs) do
         if mob and mob.id and mob.id ~= 0
-                and mob.name and mob.name:lower() == lower_name
+                and mob.name and is_target_mob(mob.name)
                 and not is_player_or_trust(mob.spawn_type or 0)
                 and (mob.status or 0) ~= 2
                 and (mob.hpp or 0) > 0
                 and (mob.claim_id or 0) == 0
         then
             -- When anchored at home with pull mode, only consider mobs within RA range of home
-            local max_range = (settings.home_set and settings.pull_mode) and math.sqrt(PULL_RANGE_SQ) or 40
+            local max_range = (settings.home_set and settings.pull_mode) and settings.pull_range or settings.scan_range
             local origin_x  = (settings.home_set and settings.pull_mode) and settings.home_x or me.x
             local origin_y  = (settings.home_set and settings.pull_mode) and settings.home_y or me.y
             local origin_z  = (settings.home_set and settings.pull_mode) and settings.home_z or me.z
@@ -268,55 +403,19 @@ local function find_target_mob(name)
     return best
 end
 
+local sc_window = nil  -- open skillchain window: {active, delay_until, expires} or nil
+
 local last_scan_tick  = 0
 local SCAN_INTERVAL   = 2.0
+local last_buff_tick  = 0
+local BUFF_CHECK_INTERVAL = 10.0
 local debug_target    = false
 local active          = false  -- start/stop toggle (not persisted)
+local returning_home  = false  -- true while windower.ffxi.run() is active toward home
 local unlock_at       = 0     -- os.clock() timestamp to send the lock-off packet
 local pull_sent       = false  -- true after /ra fired; reset when acquiring a new target
-
--- When no mob is found: follow the entity closest to home to drift back toward camp
-local function try_return_home()
-    if not settings.home_set then return end
-    local dist = home_distance()
-    if not dist or dist <= HOME_RANGE then return end
-
-    local me = windower.ffxi.get_mob_by_target('me')
-    local mobs = windower.ffxi.get_mob_array()
-    if not me or not mobs then return end
-
-    local best, best_dist = nil, math.huge
-    for _, mob in pairs(mobs) do
-        if mob and mob.id and mob.id ~= 0 and mob.id ~= me.id and (mob.status or 0) ~= 2 then
-            local dx = mob.x - settings.home_x
-            local dy = mob.y - settings.home_y
-            local dz = mob.z - settings.home_z
-            local d = math.sqrt(dx*dx + dy*dy + dz*dz)
-            if d < best_dist then
-                best_dist = d
-                best = mob
-            end
-        end
-    end
-
-    -- Only follow if an entity is reasonably close to home
-    if best and best_dist <= 20 then
-        local player = windower.ffxi.get_player()
-        if player then
-            dbg('returning home via entity "' .. (best.name or '?') .. '" (home_dist=' .. string.format('%.1f', dist) .. 'y)')
-            pcall(function()
-                packets.inject(packets.new('incoming', 0x058, {
-                    ['Player']       = player.id,
-                    ['Target']       = best.id,
-                    ['Player Index'] = player.index,
-                }))
-            end)
-            windower.send_command('input /follow <t>')
-        end
-    else
-        dbg('far from home (' .. string.format('%.1f', dist) .. 'y) — no nearby entity to follow back')
-    end
-end
+local pull_sent_at    = 0     -- os.clock() when /ra was sent; used for pull failsafe
+local PULL_TIMEOUT    = 15.0  -- seconds before retrying a failed pull
 
 local function dbg(msg)
     if debug_target then
@@ -324,65 +423,142 @@ local function dbg(msg)
     end
 end
 
+local function stop_return_home()
+    if returning_home then
+        returning_home = false
+        windower.ffxi.run(false)
+    end
+end
+
+local function try_return_home()
+    if not settings.home_set then return end
+    if settings.pull_mode then return end
+    local dist = home_distance()
+    if not dist then return end
+
+    if dist <= HOME_RANGE then
+        stop_return_home()
+        return
+    end
+
+    local me = windower.ffxi.get_mob_by_target('me')
+    if not me then return end
+    local dx = settings.home_x - me.x
+    local dy = settings.home_y - me.y
+    local len = math.sqrt(dx*dx + dy*dy)
+    if len == 0 then return end
+
+    returning_home = true
+    dbg('run[return-home] dist=' .. string.format('%.1f', dist) .. 'y')
+    windower.ffxi.run(dx / len, dy / len)
+end
+
+local function face_mob(mob)
+    local me = windower.ffxi.get_mob_by_target('me')
+    if not me or not mob then return end
+    -- FFXI angle convention: 0=east, π/2=south, π=west, 3π/2=north (clockwise).
+    -- from_radian(r) = {cos(r), -sin(r)}, so the target angle = atan2(-(dy), dx).
+    windower.ffxi.turn(math.atan2(me.y - mob.y, mob.x - me.x))
+end
+
 local function try_engage_target()
     if not active then return end
-    if settings.target_name == '' then return end
+    if not has_targets() then return end
     local player = windower.ffxi.get_player()
     if not player or (player.status ~= 0 and player.status ~= 1) then return end
-    dbg('scan | status=' .. tostring(player.status) .. ' target="' .. settings.target_name .. '"')
+    dbg('scan | status=' .. tostring(player.status) .. ' targets="' .. target_names_display() .. '"')
 
     if player.status == 1 then
         local current_target = windower.ffxi.get_mob_by_target('t')
         if current_target then
-            pcall(function()
-                packets.inject(packets.new('incoming', 0x058, {
-                    ['Player']       = player.id,
-                    ['Target']       = current_target.id,
-                    ['Player Index'] = player.index,
-                }))
-            end)
-            windower.send_command('input /follow <t>')
-            unlock_at = os.clock() + 1.0
+            if settings.home_set or not settings.follow then
+                face_mob(current_target)
+            else
+                dbg('follow[engaged] target="' .. (current_target.name or '?') .. '" hpp=' .. tostring(current_target.hpp) .. ' status=' .. tostring(current_target.status))
+                pcall(function()
+                    packets.inject(packets.new('incoming', 0x058, {
+                        ['Player']       = player.id,
+                        ['Target']       = current_target.id,
+                        ['Player Index'] = player.index,
+                    }))
+                end)
+                windower.send_command('input /follow <t>')
+                unlock_at = os.clock() + 1.0
+            end
         end
         return
     end
 
-    local lower_name = settings.target_name:lower()
-
     -- Already have the right mob targeted — approach or attack
     local current_target = windower.ffxi.get_mob_by_target('t')
+    local target_claim = current_target and (current_target.claim_id or 0)
+    local claimed_by_other = target_claim ~= nil and target_claim ~= 0 and target_claim ~= player.id
     if current_target and current_target.name
-            and current_target.name:lower() == lower_name
+            and is_target_mob(current_target.name)
             and (current_target.hpp or 0) > 0
-            and (current_target.status or 0) ~= 2 then
+            and (current_target.status or 0) ~= 2
+            and not claimed_by_other then
         local dist_sq = current_target.distance or math.huge
         if settings.pull_mode then
             if not pull_sent then
-                if dist_sq <= PULL_RANGE_SQ then
-                    dbg('pull mode — in RA range, turning to face then firing (dist_sq=' .. tostring(dist_sq) .. ')')
-                    windower.send_command('input /follow <t>')
-                    windower.send_command('wait 0.5; input /ra <t>')
-                    pull_sent = true
-                elseif not settings.home_set then
+                if dist_sq <= settings.pull_range * settings.pull_range then
+                    face_mob(current_target)
+                    local method = settings.pull_method or 'ra'
+                    if method == 'magic' then
+                        local pull_spell = nil
+                        for _, e in pairs(settings.target_spells) do pull_spell = e; break end
+                        if pull_spell then
+                            dbg('pull mode — magic pull: ' .. pull_spell.name .. ' (dist_sq=' .. tostring(dist_sq) .. ')')
+                            windower.send_command('wait 1; input /ma "' .. pull_spell.name .. '" <t>')
+                            pull_sent = true
+                            pull_sent_at = os.clock() + 1
+                            last_target_spell_cast[pull_spell.name] = os.time()
+                        else
+                            windower.add_to_chat(8, 'MagianWS: pull method is magic but no target spells configured.')
+                        end
+                    else
+                        dbg('pull mode — RA pull (dist_sq=' .. tostring(dist_sq) .. ')')
+                        windower.send_command('wait 2; input /ra <t>')
+                        pull_sent = true
+                        pull_sent_at = os.clock() + 2
+                    end
+                else
                     dbg('pull mode — approaching to pull (dist_sq=' .. tostring(dist_sq) .. ')')
                     windower.send_command('input /follow <t>')
-                else
-                    dbg('pull mode — mob out of RA range, holding position (dist_sq=' .. tostring(dist_sq) .. ')')
                 end
             elseif dist_sq <= ATTACK_RANGE_SQ then
                 dbg('in range — attacking')
                 windower.send_command('input /attack')
             else
-                dbg('pull mode — waiting for mob (dist_sq=' .. tostring(dist_sq) .. ')')
+                if os.clock() >= pull_sent_at + PULL_TIMEOUT then
+                    dbg('pull timed out — retrying RA')
+                    pull_sent = false
+                else
+                    dbg('pull mode — waiting for mob (dist_sq=' .. tostring(dist_sq) .. ')')
+                end
             end
         else
-            dbg('following (dist_sq=' .. tostring(dist_sq) .. ')')
+            dbg('follow[approach] target="' .. (current_target.name or '?') .. '" hpp=' .. tostring(current_target.hpp) .. ' status=' .. tostring(current_target.status) .. ' dist_sq=' .. tostring(dist_sq))
             windower.send_command('input /follow <t>')
             if dist_sq <= ATTACK_RANGE_SQ then
                 dbg('in range — attacking')
                 windower.send_command('input /attack')
             end
         end
+        return
+    end
+
+    -- Target mob became invalid (died, claimed, etc.) — deselect to cancel follow
+    if current_target and current_target.name and is_target_mob(current_target.name) then
+        dbg('deselect[invalid] target="' .. current_target.name .. '" hpp=' .. tostring(current_target.hpp) .. ' status=' .. tostring(current_target.status) .. ' claim=' .. tostring(current_target.claim_id))
+        pull_sent = false
+        pcall(function()
+            packets.inject(packets.new('incoming', 0x058, {
+                ['Player']       = player.id,
+                ['Target']       = 0,
+                ['Player Index'] = player.index,
+            }))
+        end)
         return
     end
 
@@ -400,7 +576,7 @@ local function try_engage_target()
     for _, mob in pairs(mobs) do
         if mob and mob.id and mob.id ~= 0 and mob.name and mob.name ~= '' then
             total = total + 1
-            if mob.name:lower() == lower_name then
+            if is_target_mob(mob.name) then
                 local reason
                 if is_player_or_trust(mob.spawn_type or 0) then
                     reason = 'SKIP:player/trust'
@@ -411,7 +587,17 @@ local function try_engage_target()
                 elseif (mob.claim_id or 0) ~= 0 then
                     reason = 'SKIP:claimed'
                 else
-                    reason = 'OK'
+                    local scan_origin_x = (settings.home_set and settings.pull_mode) and settings.home_x or (me and me.x or 0)
+                    local scan_origin_y = (settings.home_set and settings.pull_mode) and settings.home_y or (me and me.y or 0)
+                    local scan_origin_z = (settings.home_set and settings.pull_mode) and settings.home_z or (me and me.z or 0)
+                    local max_range = (settings.home_set and settings.pull_mode) and settings.pull_range or settings.scan_range
+                    local ddx, ddy, ddz = mob.x - scan_origin_x, mob.y - scan_origin_y, mob.z - scan_origin_z
+                    local dist = math.sqrt(ddx*ddx + ddy*ddy + ddz*ddz)
+                    if dist > max_range then
+                        reason = 'SKIP:range(' .. string.format('%.0f', dist) .. '>' .. tostring(max_range) .. ')'
+                    else
+                        reason = 'OK'
+                    end
                 end
                 name_matches[#name_matches+1] = 'id=' .. tostring(mob.id)
                     .. ' hpp=' .. tostring(mob.hpp)
@@ -438,8 +624,9 @@ local function try_engage_target()
         dbg('no name match — nearby (<30y): ' .. (#nearby > 0 and table.concat(nearby, ', ') or '(none)'))
     end
 
-    local mob = find_target_mob(settings.target_name)
+    local mob = find_target_mob()
     if mob then
+        stop_return_home()
         dbg('targeting id=' .. tostring(mob.id) .. ' index=' .. tostring(mob.index))
         local ok, err = pcall(function()
             packets.inject(packets.new('incoming', 0x058, {
@@ -483,17 +670,27 @@ windower.register_event('prerender', function()
 
     if now >= last_scan_tick + SCAN_INTERVAL then
         last_scan_tick = now
-        if settings.home_set then update_display() end
+        if settings.home_set or settings.mode == 'exp' then update_display() end
         try_engage_target()
+        if active then try_use_item() end
+    end
+
+    if now >= last_buff_tick + BUFF_CHECK_INTERVAL then
+        last_buff_tick = now
+        if active then
+            maintain_buffs()
+            maintain_target_spells()
+        end
     end
 end)
 
 local function print_status()
     local buff_count = 0
-    for _ in pairs(settings.buffs) do buff_count = buff_count + 1 end
+    for _ in pairs(get_active_buffs()) do buff_count = buff_count + 1 end
+    local buff_str = settings.active_buff_set ~= '' and (settings.active_buff_set .. ' (' .. buff_count .. ')') or 'off'
     local rem_str = settings.trial_remaining >= 0 and tostring(settings.trial_remaining) or '?'
     local home_str = settings.home_set and ('(%.1f, %.1f, %.1f)'):format(settings.home_x, settings.home_y, settings.home_z) or 'off'
-    windower.add_to_chat(8, 'MagianWS: Weaponskill: "' .. settings.ws_name .. '" | TP threshold: ' .. settings.tp_threshold .. ' | Remaining: ' .. rem_str .. ' | Food: ' .. (settings.food_name ~= '' and settings.food_name or 'off') .. ' | Ammo: ' .. (settings.ammo_name ~= '' and settings.ammo_name or 'off') .. ' | Buffs: ' .. buff_count .. ' | Provoke: ' .. (settings.provoke and 'on' or 'off') .. ' | Follow: ' .. (settings.follow and 'on' or 'off') .. ' | Pull: ' .. (settings.pull_mode and 'on' or 'off') .. ' | Home: ' .. home_str .. ' | Target: ' .. (settings.target_name ~= '' and '"' .. settings.target_name .. '"' or 'off') .. ' | Active: ' .. (active and 'yes' or 'no'))
+    windower.add_to_chat(8, 'MagianWS: Weaponskill: "' .. settings.ws_name .. '" | TP threshold: ' .. settings.tp_threshold .. ' | Remaining: ' .. rem_str .. ' | Food: ' .. (settings.food_name ~= '' and settings.food_name or 'off') .. ' | Ammo: ' .. (settings.ammo_name ~= '' and settings.ammo_name or 'off') .. ' | Item: ' .. (settings.use_item ~= '' and settings.use_item or 'off') .. ' | Buffs: ' .. buff_str .. ' | Provoke: ' .. (settings.provoke and 'on' or 'off') .. ' | Follow: ' .. (settings.follow and 'on' or 'off') .. ' | Pull: ' .. (settings.pull_mode and 'on' or 'off') .. ' | Range: ' .. tostring(settings.scan_range) .. 'y | Home: ' .. home_str .. ' | Target: ' .. (has_targets() and target_names_display() or 'off') .. ' | Active: ' .. (active and 'yes' or 'no'))
 end
 
 local function try_eat_food_if_engaged()
@@ -501,6 +698,21 @@ local function try_eat_food_if_engaged()
     if player.status == 1 then
         try_eat_food()
     end
+end
+
+-- Returns the level of skillchain formed (1-4) if ws2_props can close the
+-- resonance opened by ws1_props, or nil if no chain is possible.
+local function check_sc_props(ws1_props, ws2_props)
+    for _, first in ipairs(ws1_props) do
+        local combo = sc_data.sc_info[first]
+        if combo then
+            for _, second in ipairs(ws2_props) do
+                local result = combo[second]
+                if result then return result[1], result[2] end
+            end
+        end
+    end
+    return nil
 end
 
 local function execute_ws()
@@ -513,6 +725,25 @@ windower.register_event('addon command', function(cmd, ...)
         settings.ws_name = table.concat({...}, ' ')
         settings:save()
         print_status()
+    elseif cmd == 'ws2' then
+        local arg = table.concat({...}, ' ')
+        if arg == '' or arg:lower() == 'off' then
+            settings.ws2_name = ''
+            sc_window = nil
+            windower.add_to_chat(8, 'MagianWS: WS2 disabled.')
+        else
+            local ws_data = sc_data.ws_by_name[arg:lower()]
+            if ws_data then
+                settings.ws2_name = arg
+                windower.add_to_chat(8, ('MagianWS: WS2 set to "%s" (%s).'):format(arg, table.concat(ws_data.skillchain, '/')))
+            else
+                -- Accept the name even if not in skill data (might be a newer WS)
+                settings.ws2_name = arg
+                windower.add_to_chat(8, ('MagianWS: WS2 set to "%s" (no SC data — chain detection unavailable).'):format(arg))
+            end
+        end
+        settings:save()
+        update_display()
     elseif cmd == 'tp' then
         local val = tonumber((...))
         if val then
@@ -542,42 +773,124 @@ windower.register_event('addon command', function(cmd, ...)
         end
         settings:save()
         print_status()
+    elseif cmd == 'item' then
+        local arg = table.concat({...}, ' ')
+        if arg == '' or arg:lower() == 'off' then
+            settings.use_item = ''
+        else
+            settings.use_item = arg
+        end
+        settings:save()
+        print_status()
     elseif cmd == 'buff' then
         local subcmd = (...)
         local rest = {select(2, ...)}
+        local active_set_name = settings.active_buff_set
         if subcmd == 'add' then
-            local buff_name = table.concat(rest, ' ')
-            local info = find_buff_info(buff_name)
-            if info then
-                local key = info.name:gsub(' ', '_')
-                settings.buffs[key] = {name = info.name, type = info.type, buff_id = info.buff_id}
-                settings:save()
-                windower.add_to_chat(8, 'MagianWS: Added buff "' .. info.name .. '" (' .. info.type .. ', buff ID ' .. info.buff_id .. ').')
+            if active_set_name == '' then
+                windower.add_to_chat(8, 'MagianWS: No active buff set. Use: //magianws buffset use <name>')
             else
-                windower.add_to_chat(8, 'MagianWS: Unknown buff "' .. buff_name .. '".')
-            end
-        elseif subcmd == 'remove' then
-            local buff_name = table.concat(rest, ' ')
-            local search_key = buff_name:gsub(' ', '_')
-            for k in pairs(settings.buffs) do
-                if k:lower() == search_key:lower() then
-                    local display_name = settings.buffs[k].name or k
-                    settings.buffs[k] = nil
+                local buff_name = table.concat(rest, ' ')
+                local info = find_buff_info(buff_name)
+                if info then
+                    local set = settings.buff_sets[active_set_name]
+                    local key = info.name:gsub(' ', '_')
+                    set[key] = {name = info.name, type = info.type, buff_id = info.buff_id}
                     settings:save()
-                    windower.add_to_chat(8, 'MagianWS: Removed buff "' .. display_name .. '".')
-                    return
+                    windower.add_to_chat(8, 'MagianWS: Added "' .. info.name .. '" to set "' .. active_set_name .. '".')
+                else
+                    windower.add_to_chat(8, 'MagianWS: Unknown buff "' .. buff_name .. '".')
                 end
             end
-            windower.add_to_chat(8, 'MagianWS: Buff "' .. buff_name .. '" not found.')
+        elseif subcmd == 'remove' then
+            if active_set_name == '' then
+                windower.add_to_chat(8, 'MagianWS: No active buff set.')
+            else
+                local buff_name = table.concat(rest, ' ')
+                local search_key = buff_name:gsub(' ', '_')
+                local set = settings.buff_sets[active_set_name]
+                local found = false
+                for k in pairs(set) do
+                    if k:lower() == search_key:lower() then
+                        local display_name = set[k].name or k
+                        set[k] = nil
+                        settings:save()
+                        windower.add_to_chat(8, 'MagianWS: Removed "' .. display_name .. '" from set "' .. active_set_name .. '".')
+                        found = true
+                        break
+                    end
+                end
+                if not found then
+                    windower.add_to_chat(8, 'MagianWS: Buff "' .. buff_name .. '" not found in set "' .. active_set_name .. '".')
+                end
+            end
+        elseif subcmd == 'list' then
+            if active_set_name == '' then
+                windower.add_to_chat(8, 'MagianWS: No active buff set.')
+            else
+                local set = settings.buff_sets[active_set_name]
+                local count = 0
+                for _, entry in pairs(set) do
+                    windower.add_to_chat(8, 'MagianWS: "' .. entry.name .. '" (' .. entry.type .. ')')
+                    count = count + 1
+                end
+                if count == 0 then
+                    windower.add_to_chat(8, 'MagianWS: Set "' .. active_set_name .. '" has no buffs.')
+                end
+            end
+        end
+    elseif cmd == 'buffset' then
+        local subcmd = (...)
+        local rest = {select(2, ...)}
+        local name = table.concat(rest, ' ')
+        if subcmd == 'create' then
+            if name == '' then
+                windower.add_to_chat(8, 'MagianWS: Usage: buffset create <name>')
+            elseif settings.buff_sets[name] then
+                windower.add_to_chat(8, 'MagianWS: Set "' .. name .. '" already exists.')
+            else
+                settings.buff_sets[name] = {}
+                settings.active_buff_set = name
+                settings:save()
+                windower.add_to_chat(8, 'MagianWS: Created buff set "' .. name .. '" (now active).')
+            end
+        elseif subcmd == 'use' then
+            if name == '' or name:lower() == 'off' then
+                settings.active_buff_set = ''
+                settings:save()
+                windower.add_to_chat(8, 'MagianWS: Buff set deactivated.')
+            elseif settings.buff_sets[name] then
+                settings.active_buff_set = name
+                settings:save()
+                windower.add_to_chat(8, 'MagianWS: Using buff set "' .. name .. '".')
+            else
+                windower.add_to_chat(8, 'MagianWS: Set "' .. name .. '" not found. Use: //magianws buffset create <name>')
+            end
+        elseif subcmd == 'delete' then
+            if name == '' then
+                windower.add_to_chat(8, 'MagianWS: Usage: buffset delete <name>')
+            elseif settings.buff_sets[name] then
+                settings.buff_sets[name] = nil
+                if settings.active_buff_set == name then settings.active_buff_set = '' end
+                settings:save()
+                windower.add_to_chat(8, 'MagianWS: Deleted buff set "' .. name .. '".')
+            else
+                windower.add_to_chat(8, 'MagianWS: Set "' .. name .. '" not found.')
+            end
         elseif subcmd == 'list' then
             local count = 0
-            for _, entry in pairs(settings.buffs) do
-                windower.add_to_chat(8, 'MagianWS: "' .. entry.name .. '" (' .. entry.type .. ', buff ID ' .. entry.buff_id .. ')')
+            for set_name, set in pairs(settings.buff_sets) do
+                local n = 0
+                for _ in pairs(set) do n = n + 1 end
+                local marker = set_name == settings.active_buff_set and ' ◀' or ''
+                windower.add_to_chat(8, 'MagianWS: "' .. set_name .. '" — ' .. n .. ' buff(s)' .. marker)
                 count = count + 1
             end
             if count == 0 then
-                windower.add_to_chat(8, 'MagianWS: No buffs configured.')
+                windower.add_to_chat(8, 'MagianWS: No buff sets configured.')
             end
+        else
+            windower.add_to_chat(8, 'MagianWS: Usage: buffset create|use|delete|list <name>')
         end
     elseif cmd == 'provoke' then
         local arg = (...)
@@ -635,28 +948,98 @@ windower.register_event('addon command', function(cmd, ...)
         end
     elseif cmd == 'pull' then
         local arg = (...)
+        local rest = {select(2, ...)}
         if arg == 'on' then
             settings.pull_mode = true
+            settings:save()
+            print_status()
         elseif arg == 'off' then
             settings.pull_mode = false
+            settings:save()
+            print_status()
+        elseif arg == 'method' then
+            local method = rest[1] and rest[1]:lower()
+            if method == 'ra' or method == 'magic' then
+                settings.pull_method = method
+                settings:save()
+                local note = method == 'magic' and ' (set pullrange <=21)' or ''
+                windower.add_to_chat(8, 'MagianWS: Pull method set to "' .. method .. '".' .. note)
+            else
+                windower.add_to_chat(8, 'MagianWS: Usage: pull method ra|magic')
+            end
         else
-            windower.add_to_chat(8, 'MagianWS: Usage: pull on|off')
-            return
+            windower.add_to_chat(8, 'MagianWS: Usage: pull on|off  or  pull method ra|magic')
         end
-        settings:save()
-        print_status()
+    elseif cmd == 'pullrange' then
+        local val = tonumber((...))
+        if val and val > 0 then
+            settings.pull_range = val
+            settings:save()
+            windower.add_to_chat(8, ('MagianWS: Pull range set to %d yalms.'):format(val))
+        else
+            windower.add_to_chat(8, ('MagianWS: Pull range: %d yalms. Usage: pullrange <yalms>'):format(settings.pull_range))
+        end
+    elseif cmd == 'range' then
+        local val = tonumber((...))
+        if val and val > 0 then
+            settings.scan_range = val
+            settings:save()
+            windower.add_to_chat(8, ('MagianWS: Scan range set to %d yalms.'):format(val))
+        else
+            windower.add_to_chat(8, ('MagianWS: Scan range: %d yalms. Usage: range <yalms>'):format(settings.scan_range))
+        end
     elseif cmd == 'target' then
-        local arg = table.concat({...}, ' ')
-        if arg == '' or arg:lower() == 'off' then
-            settings.target_name = ''
+        local subcmd = (...)
+        local rest = {select(2, ...)}
+        if subcmd == nil or subcmd == 'off' then
+            settings.target_names = {}
+            settings:save()
             windower.add_to_chat(8, 'MagianWS: Auto-target disabled.')
+            update_display()
+        elseif subcmd == 'add' then
+            local name = table.concat(rest, ' ')
+            if name ~= '' then
+                local key = name:gsub(' ', '_')
+                settings.target_names[key] = {name = name}
+                settings:save()
+                windower.add_to_chat(8, 'MagianWS: Added target "' .. name .. '".')
+                update_display()
+            else
+                windower.add_to_chat(8, 'MagianWS: Usage: target add <name>')
+            end
+        elseif subcmd == 'remove' then
+            local name = table.concat(rest, ' ')
+            local search = name:lower()
+            local found = false
+            for k, entry in pairs(settings.target_names) do
+                if entry.name:lower() == search then
+                    settings.target_names[k] = nil
+                    settings:save()
+                    windower.add_to_chat(8, 'MagianWS: Removed target "' .. entry.name .. '".')
+                    update_display()
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                windower.add_to_chat(8, 'MagianWS: Target "' .. name .. '" not found.')
+            end
+        elseif subcmd == 'list' then
+            if has_targets() then
+                windower.add_to_chat(8, 'MagianWS: Targets: ' .. target_names_display())
+            else
+                windower.add_to_chat(8, 'MagianWS: No targets configured.')
+            end
         else
-            settings.target_name = arg
-            windower.add_to_chat(8, 'MagianWS: Auto-target set to "' .. arg .. '".')
+            -- Plain name (no subcommand) — replace all targets with this one
+            local name = table.concat({subcmd, unpack(rest)}, ' ')
+            settings.target_names = {}
+            settings.target_names[name:gsub(' ', '_')] = {name = name}
+            settings:save()
+            windower.add_to_chat(8, 'MagianWS: Auto-target set to "' .. name .. '".')
+            update_display()
         end
-        settings:save()
         print_status()
-        update_display()
     elseif cmd == 'trial' then
         local subcmd = (...)
         local rest = {select(2, ...)}
@@ -686,15 +1069,16 @@ windower.register_event('addon command', function(cmd, ...)
         display_visible = false
         update_display()
     elseif cmd == 'start' then
-        if settings.target_name == '' then
+        if not has_targets() then
             windower.add_to_chat(8, 'MagianWS: Set a target first: //magianws target <name>')
         else
             active = true
-            windower.add_to_chat(8, 'MagianWS: Started — targeting "' .. settings.target_name .. '".')
+            windower.add_to_chat(8, 'MagianWS: Started — targeting ' .. target_names_display() .. '.')
             update_display()
         end
     elseif cmd == 'stop' then
         active = false
+        stop_return_home()
         windower.add_to_chat(8, 'MagianWS: Stopped.')
         update_display()
     elseif cmd == 'debug' then
@@ -708,6 +1092,76 @@ windower.register_event('addon command', function(cmd, ...)
         else
             windower.add_to_chat(8, 'MagianWS: Usage: debug on|off')
         end
+    elseif cmd == 'exp' then
+        local subcmd = (...)
+        if subcmd == 'reset' then
+            session_start = os.time()
+            session_exp   = 0
+            session_cp    = 0
+            session_ep    = 0
+            update_display()
+            windower.add_to_chat(8, 'MagianWS: Session reset.')
+        else
+            local elapsed = os.time() - session_start
+            local mins = math.floor(elapsed / 60)
+            windower.add_to_chat(8, ('MagianWS: Session %dm — EXP/hr: %s | CP/hr: %s | EP/hr: %s'):format(
+                mins, format_rate(session_exp), format_rate(session_cp), format_rate(session_ep)))
+        end
+    elseif cmd == 'mode' then
+        local arg = (...)
+        if arg == 'trials' or arg == 'exp' then
+            settings.mode = arg
+            settings:save()
+            update_display()
+            windower.add_to_chat(8, 'MagianWS: Mode set to ' .. arg .. '.')
+        else
+            windower.add_to_chat(8, 'MagianWS: Usage: mode trials|exp')
+        end
+    elseif cmd == 'spell' then
+        local subcmd = (...)
+        local rest = {select(2, ...)}
+        if subcmd == 'add' then
+            local spell_name = table.concat(rest, ' ')
+            local found = find_spell_name(spell_name)
+            if found then
+                local key = found:gsub(' ', '_'):lower()
+                settings.target_spells[key] = {name = found, duration = TARGET_SPELL_INTERVAL}
+                settings:save()
+                windower.add_to_chat(8, 'MagianWS: Added target spell "' .. found .. '".')
+            else
+                windower.add_to_chat(8, 'MagianWS: Unknown spell "' .. spell_name .. '". Check spelling and capitalisation.')
+            end
+        elseif subcmd == 'remove' then
+            local spell_name = table.concat(rest, ' ')
+            local search = spell_name:lower()
+            local found = false
+            for k, entry in pairs(settings.target_spells) do
+                if entry.name:lower() == search then
+                    settings.target_spells[k] = nil
+                    settings:save()
+                    windower.add_to_chat(8, 'MagianWS: Removed target spell "' .. entry.name .. '".')
+                    found = true
+                    break
+                end
+            end
+            if not found then
+                windower.add_to_chat(8, 'MagianWS: Spell "' .. spell_name .. '" not in list.')
+            end
+        elseif subcmd == 'list' then
+            if next(settings.target_spells) == nil then
+                windower.add_to_chat(8, 'MagianWS: No target spells configured.')
+            else
+                for _, entry in pairs(settings.target_spells) do
+                    windower.add_to_chat(8, 'MagianWS: "' .. entry.name .. '" (every ' .. (entry.duration or TARGET_SPELL_INTERVAL) .. 's)')
+                end
+            end
+        elseif subcmd == 'off' then
+            settings.target_spells = {}
+            settings:save()
+            windower.add_to_chat(8, 'MagianWS: All target spells cleared.')
+        else
+            windower.add_to_chat(8, 'MagianWS: Usage: spell add|remove|list|off <name>')
+        end
     elseif cmd == 'status' then
         print_status()
     end
@@ -715,18 +1169,27 @@ end)
 
 windower.register_event('status change', function(new_status)
     if new_status == 1 then
-        try_eat_food()
-        maintain_buffs()
+        stop_return_home()
+        if active then
+            try_eat_food()
+            maintain_buffs()
+            last_target_spell_cast = {}
+            target_spell_delay_until = pull_sent and (os.clock() + 3.0) or 0
+            maintain_target_spells()
+        end
+    else
+        sc_window = nil  -- clear any open chain window on disengage or death
     end
 end)
 
 windower.register_event('lose buff', function(buff_id)
+    if not active then return end
     if buff_id == 251 then
         try_eat_food()
     end
     local player = windower.ffxi.get_player()
     if player.status == 1 then
-        for _, entry in pairs(settings.buffs) do
+        for _, entry in pairs(get_active_buffs()) do
             if tonumber(entry.buff_id) == buff_id then
                 cast_buff(entry.name, entry.type)
                 break
@@ -754,20 +1217,80 @@ windower.register_event('incoming text', function(original, modified, mode)
         settings:save()
         update_display()
     end
+
+    if player_name_lower ~= '' then
+        local pn = player_name_lower
+        local exp = lower:match(pn .. ' gains (%d+) experience points')
+                 or lower:match(pn .. ' gains (%d+) limit points')
+        if exp then session_exp = session_exp + tonumber(exp); update_display() end
+
+        local cp = lower:match(pn .. ' gains (%d+) capacity points')
+        if cp then session_cp = session_cp + tonumber(cp); update_display() end
+
+        local ep = lower:match(pn .. ' gains (%d+) exemplar points')
+        if ep then session_ep = session_ep + tonumber(ep); update_display() end
+    end
+end)
+
+-- Detect when player's weaponskill resolves and open a skillchain window.
+-- Category 3 = weaponskill_finish in action packets (0x028).
+windower.register_event('incoming chunk', function(id, data)
+    if id ~= 0x028 or settings.ws2_name == '' then return end
+    local act = windower.packets.parse_action(data)
+    if act.category ~= 3 then return end
+    local player = windower.ffxi.get_player()
+    if not player or act.actor_id ~= player.id then return end
+    local ws_data = sc_data.weapon_skills[act.param]
+    if not ws_data then return end
+    local delay = ws_data.delay or 3
+    sc_window = {
+        active     = ws_data.skillchain,
+        delay_until= os.clock() + delay,
+        expires    = os.clock() + delay + 8,
+    }
+    dbg('SC window opened: ' .. ws_data.en .. ' → ' .. table.concat(ws_data.skillchain, '/'))
 end)
 
 windower.register_event('tp change', function(new_tp, old_tp)
     local player = windower.ffxi.get_player()
-    if player and player.status == 1 then
-        try_provoke()
-        if new_tp >= settings.tp_threshold then
-            execute_ws()
+    if not player or player.status ~= 1 then return end
+    try_provoke()
+
+    -- If a skillchain window is open, try to close it with WS2 before firing WS1
+    if sc_window and settings.ws2_name ~= '' then
+        local now = os.clock()
+        if now >= sc_window.expires then
+            sc_window = nil
+        elseif now >= sc_window.delay_until and new_tp >= settings.tp_threshold then
+            local ws2_data = sc_data.ws_by_name[settings.ws2_name:lower()]
+            if ws2_data then
+                local level, chain_name = check_sc_props(sc_window.active, ws2_data.skillchain)
+                if level then
+                    dbg(('SC close: %s → Lv.%d %s'):format(settings.ws2_name, level, chain_name or '?'))
+                    try_equip_ammo()
+                    windower.send_command('input /ws "' .. settings.ws2_name .. '" <t>')
+                    sc_window = nil
+                    return
+                end
+            end
+            -- WS2 can't close the current resonance; give up and let WS1 fire below
+            sc_window = nil
+        else
+            -- Waiting: window open but delay hasn't passed or TP not ready yet;
+            -- don't fire WS1 while we still have a chance to close the chain
+            if now < sc_window.expires then return end
         end
+    end
+
+    if new_tp >= settings.tp_threshold then
+        execute_ws()
     end
 end)
 
 windower.register_event('zone change', function()
     pull_sent = false
+    sc_window  = nil
+    stop_return_home()
     if active then
         active = false
         windower.add_to_chat(8, 'MagianWS: Stopped — zone change detected.')
@@ -779,7 +1302,3 @@ end)
 
 print_status()
 update_display()
-try_equip_ammo()
-try_eat_food_if_engaged()
-maintain_buffs()
-execute_ws()

@@ -1,10 +1,296 @@
 <?xml version="1.1" ?>
 <settings>
     <global>
+        <active_buff_set />
         <ammo_name />
-        <buffs>
-
-        </buffs>
+        <buff_sets>
+            <mnkwar>
+                <berserk>
+                    <buff_id>56</buff_id>
+                    <name>Berserk</name>
+                    <type>ability</type>
+                </berserk>
+                <focus>
+                    <buff_id>59</buff_id>
+                    <name>Focus</name>
+                    <type>ability</type>
+                </focus>
+                <impetus>
+                    <buff_id>461</buff_id>
+                    <name>Impetus</name>
+                    <type>ability</type>
+                </impetus>
+                <warcry>
+                    <buff_id>68</buff_id>
+                    <name>Warcry</name>
+                    <type>ability</type>
+                </warcry>
+            </mnkwar>
+            <rdmmagian>
+                <aquaveil>
+                    <buff_id>39</buff_id>
+                    <name>Aquaveil</name>
+                    <type>spell</type>
+                </aquaveil>
+                <barpoison>
+                    <buff_id>107</buff_id>
+                    <name>Barpoison</name>
+                    <type>spell</type>
+                </barpoison>
+                <barwater>
+                    <buff_id>105</buff_id>
+                    <name>Barwater</name>
+                    <type>spell</type>
+                </barwater>
+                <composure>
+                    <buff_id>419</buff_id>
+                    <name>Composure</name>
+                    <type>ability</type>
+                </composure>
+                <enthunder_ii>
+                    <buff_id>281</buff_id>
+                    <name>Enthunder II</name>
+                    <type>spell</type>
+                </enthunder_ii>
+                <gain-str>
+                    <buff_id>119</buff_id>
+                    <name>Gain-STR</name>
+                    <type>spell</type>
+                </gain-str>
+                <haste_ii>
+                    <buff_id>33</buff_id>
+                    <name>Haste II</name>
+                    <type>spell</type>
+                </haste_ii>
+                <haste_samba>
+                    <buff_id>370</buff_id>
+                    <name>Haste Samba</name>
+                    <type>ability</type>
+                </haste_samba>
+                <phalanx_ii>
+                    <buff_id>116</buff_id>
+                    <name>Phalanx II</name>
+                    <type>spell</type>
+                </phalanx_ii>
+                <refresh_iii>
+                    <buff_id>43</buff_id>
+                    <name>Refresh III</name>
+                    <type>spell</type>
+                </refresh_iii>
+                <regen_ii>
+                    <buff_id>42</buff_id>
+                    <name>Regen II</name>
+                    <type>spell</type>
+                </regen_ii>
+                <temper>
+                    <buff_id>432</buff_id>
+                    <name>Temper</name>
+                    <type>spell</type>
+                </temper>
+                <temper_ii>
+                    <buff_id>432</buff_id>
+                    <name>Temper II</name>
+                    <type>spell</type>
+                </temper_ii>
+            </rdmmagian>
+            <rdmwar>
+                <aggressor>
+                    <buff_id>58</buff_id>
+                    <name>Aggressor</name>
+                    <type>ability</type>
+                </aggressor>
+                <berserk>
+                    <buff_id>56</buff_id>
+                    <name>Berserk</name>
+                    <type>ability</type>
+                </berserk>
+                <composure>
+                    <buff_id>419</buff_id>
+                    <name>Composure</name>
+                    <type>ability</type>
+                </composure>
+                <enthunder_ii>
+                    <buff_id>281</buff_id>
+                    <name>Enthunder II</name>
+                    <type>spell</type>
+                </enthunder_ii>
+                <haste_ii>
+                    <buff_id>33</buff_id>
+                    <name>Haste II</name>
+                    <type>spell</type>
+                </haste_ii>
+                <haste_samba>
+                    <buff_id>370</buff_id>
+                    <name>Haste Samba</name>
+                    <type>ability</type>
+                </haste_samba>
+                <phalanx_ii>
+                    <buff_id>116</buff_id>
+                    <name>Phalanx II</name>
+                    <type>spell</type>
+                </phalanx_ii>
+                <temper>
+                    <buff_id>432</buff_id>
+                    <name>Temper</name>
+                    <type>spell</type>
+                </temper>
+                <warcry>
+                    <buff_id>68</buff_id>
+                    <name>Warcry</name>
+                    <type>ability</type>
+                </warcry>
+            </rdmwar>
+            <samdrg>
+                <hasso>
+                    <buff_id>353</buff_id>
+                    <name>Hasso</name>
+                    <type>ability</type>
+                </hasso>
+                <jump>
+                    <buff_id>0</buff_id>
+                    <name>Jump</name>
+                    <type>ability</type>
+                </jump>
+                <meditate>
+                    <buff_id>0</buff_id>
+                    <name>Meditate</name>
+                    <type>ability</type>
+                </meditate>
+                <sekkanoki>
+                    <buff_id>0</buff_id>
+                    <name>Sekkanoki</name>
+                    <type>ability</type>
+                </sekkanoki>
+                <third_eye>
+                    <buff_id>67</buff_id>
+                    <name>Third Eye</name>
+                    <type>ability</type>
+                </third_eye>
+            </samdrg>
+            <samwar>
+                <aggressor>
+                    <buff_id>58</buff_id>
+                    <name>Aggressor</name>
+                    <type>ability</type>
+                </aggressor>
+                <berserk>
+                    <buff_id>56</buff_id>
+                    <name>Berserk</name>
+                    <type>ability</type>
+                </berserk>
+                <hasso>
+                    <buff_id>353</buff_id>
+                    <name>Hasso</name>
+                    <type>ability</type>
+                </hasso>
+                <meditate>
+                    <buff_id>0</buff_id>
+                    <name>Meditate</name>
+                    <type>ability</type>
+                </meditate>
+                <sekkanoki>
+                    <buff_id>0</buff_id>
+                    <name>Sekkanoki</name>
+                    <type>ability</type>
+                </sekkanoki>
+                <third_eye>
+                    <buff_id>67</buff_id>
+                    <name>Third Eye</name>
+                    <type>ability</type>
+                </third_eye>
+                <warcry>
+                    <buff_id>68</buff_id>
+                    <name>Warcry</name>
+                    <type>ability</type>
+                </warcry>
+            </samwar>
+            <thfdnc>
+                <haste_samba>
+                    <buff_id>370</buff_id>
+                    <name>Haste Samba</name>
+                    <type>ability</type>
+                </haste_samba>
+            </thfdnc>
+            <wardnc>
+                <aggressor>
+                    <buff_id>58</buff_id>
+                    <name>Aggressor</name>
+                    <type>ability</type>
+                </aggressor>
+                <berserk>
+                    <buff_id>56</buff_id>
+                    <name>Berserk</name>
+                    <type>ability</type>
+                </berserk>
+                <haste_samba>
+                    <buff_id>370</buff_id>
+                    <name>Haste Samba</name>
+                    <type>ability</type>
+                </haste_samba>
+                <restraint>
+                    <buff_id>435</buff_id>
+                    <name>Restraint</name>
+                    <type>ability</type>
+                </restraint>
+                <retaliation>
+                    <buff_id>405</buff_id>
+                    <name>Retaliation</name>
+                    <type>ability</type>
+                </retaliation>
+                <warcry>
+                    <buff_id>68</buff_id>
+                    <name>Warcry</name>
+                    <type>ability</type>
+                </warcry>
+                <warriors_charge>
+                    <buff_id>340</buff_id>
+                    <name>Warrior&apos;s Charge</name>
+                    <type>ability</type>
+                </warriors_charge>
+            </wardnc>
+            <warsam>
+                <aggressor>
+                    <buff_id>58</buff_id>
+                    <name>Aggressor</name>
+                    <type>ability</type>
+                </aggressor>
+                <berserk>
+                    <buff_id>56</buff_id>
+                    <name>Berserk</name>
+                    <type>ability</type>
+                </berserk>
+                <meditate>
+                    <buff_id>0</buff_id>
+                    <name>Meditate</name>
+                    <type>ability</type>
+                </meditate>
+                <restraint>
+                    <buff_id>435</buff_id>
+                    <name>Restraint</name>
+                    <type>ability</type>
+                </restraint>
+                <retaliation>
+                    <buff_id>405</buff_id>
+                    <name>Retaliation</name>
+                    <type>ability</type>
+                </retaliation>
+                <third_eye>
+                    <buff_id>67</buff_id>
+                    <name>Third Eye</name>
+                    <type>ability</type>
+                </third_eye>
+                <warcry>
+                    <buff_id>68</buff_id>
+                    <name>Warcry</name>
+                    <type>ability</type>
+                </warcry>
+                <warriors_charge>
+                    <buff_id>340</buff_id>
+                    <name>Warrior&apos;s Charge</name>
+                    <type>ability</type>
+                </warriors_charge>
+            </warsam>
+        </buff_sets>
         <display>
             <bg>
                 <alpha>160</alpha>
@@ -46,17 +332,40 @@
         </display>
         <follow>false</follow>
         <food_name />
+        <home_set>false</home_set>
+        <home_x>0</home_x>
+        <home_y>0</home_y>
+        <home_z>0</home_z>
+        <mode>trials</mode>
         <provoke>false</provoke>
-        <target_name />
+        <pull_method>ra</pull_method>
+        <pull_mode>false</pull_mode>
+        <pull_range>25</pull_range>
+        <scan_range>40</scan_range>
+        <target_names>
+            <apex_jagil>
+                <name>Apex Jagil</name>
+            </apex_jagil>
+            <apex_toad>
+                <name>Apex Toad</name>
+            </apex_toad>
+        </target_names>
+        <target_spells>
+
+        </target_spells>
         <tp_threshold>1000</tp_threshold>
         <trial_remaining>-1</trial_remaining>
-        <ws_name>Piercing Arrow</ws_name>
+        <use_item />
+        <ws2_delay>1.5</ws2_delay>
+        <ws2_name />
+        <ws_name>Savage Blade</ws_name>
     </global>
     <nermie>
+        <active_buff_set>samdrg</active_buff_set>
         <display>
             <pos>
-                <x>1656</x>
-                <y>365</y>
+                <x>1476</x>
+                <y>127</y>
             </pos>
             <text>
                 <fonts>
@@ -65,9 +374,16 @@
             </text>
         </display>
         <follow>true</follow>
-        <target_name>Gneiss Leech</target_name>
-        <tp_threshold>1250</tp_threshold>
-        <trial_remaining>37</trial_remaining>
-        <ws_name>Trueflight</ws_name>
+        <food_name>Grape Daifuku</food_name>
+        <home_set>true</home_set>
+        <home_x>284.07943725586</home_x>
+        <home_y>33.256126403809</home_y>
+        <home_z>30.790107727051</home_z>
+        <mode>exp</mode>
+        <pull_range>20</pull_range>
+        <scan_range>20</scan_range>
+        <trial_remaining>150</trial_remaining>
+        <use_item>R. Ygg. Shard I</use_item>
+        <ws_name>Impulse Drive</ws_name>
     </nermie>
 </settings>
